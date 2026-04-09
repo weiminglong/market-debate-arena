@@ -16,17 +16,17 @@ Requires:
 ## Usage
 
 ```bash
-# Run a single debate on 3 markets
+# Run a single generation on 3 live markets
 npx tsx src/index.ts --markets 3 -v
 
-# Run with Cursor Agent runtime (for showcase/demo)
+# Run with Cursor Agent runtime
 npx tsx src/index.ts --markets 3 --agent-runtime cursor -v
-
-# Run curated showcase markets (stable demo path)
-npx tsx src/index.ts --showcase --agent-runtime cursor -v
 
 # Run 5 generations of evolution
 npx tsx src/index.ts --markets 3 --generations 5 -v
+
+# Run deterministic mock mode (no live API calls)
+npx tsx src/index.ts --markets 3 --generations 3 --mock -v
 
 # Debate a specific Polymarket question
 npx tsx src/index.ts --condition-id 0x1234...
@@ -35,51 +35,51 @@ npx tsx src/index.ts --condition-id 0x1234...
 npx tsx src/index.ts --history
 ```
 
-## Showcase (Recommended Flow)
+## System Design
 
-### 1) Pre-demo live evidence (run before going on stage)
+The system is organized as a multi-agent research pipeline:
 
-```bash
-# Stronger signal for optimization (more markets, more generations)
-npx tsx src/index.ts --showcase --agent-runtime cursor --markets 3 --generations 4
+1. **Market selection**: fetches active prediction markets from Polymarket/Kalshi.
+2. **Adversarial debaters**: YES and NO agents independently gather evidence with Surf tools.
+3. **Byzantine judge panel**: three judges evaluate argument quality and vote.
+4. **Consensus + scoring**: votes are aggregated into a verdict and scored against market probability.
+5. **Analyst mutation**: an analyst updates the strategy playbook for the next generation.
+6. **Persistence**: results and strategy state are written for replay and trend analysis.
 
-# Generate latest optimization report from saved results
-npx tsx src/index.ts --showcase-report
-```
+Core persisted artifacts:
 
-### 2) On-stage 2-minute command (safe timing)
+- `results/gen-*.json`: generation-level outputs (debates, votes, score, metadata)
+- `strategies/playbook.json`: evolving strategy state (`lessons`, `toolPriority`, `avoidPatterns`)
 
-```bash
-bash scripts/showcase-2min.sh
-```
+## Optimization Loop
 
-This runs:
-- a fast 2-generation showcase flow in mock mode
-- then `--showcase-report` for optimization metrics
+Each generation runs the same closed-loop process:
 
-### 3) Optional live script mode (slower, pre-stage use)
+1. Load current playbook.
+2. Debate selected markets (YES vs NO).
+3. Judge and compute consensus.
+4. Score outcomes and aggregate generation performance.
+5. Evolve playbook from observed strengths/failures.
+6. Repeat for the next generation.
 
-```bash
-bash scripts/showcase-2min.sh --live
-```
+### Metrics
 
-The showcase emphasizes automated optimization, not only unresolved market outcomes.
-It reports both:
+- **Align\*** (alignment proxy): calibration against live market-implied probability.
+  - If winner is YES: score = market price.
+  - If winner is NO: score = `1 - market price`.
+- **RQI** (research quality index): settlement-independent quality signal from:
+  - claim depth (claims per side),
+  - source diversity (unique sources per side),
+  - judge confidence.
 
-- **Align\***: alignment proxy versus live market-implied probability
-- **RQI**: research quality index (claim depth, source diversity, judge confidence)
+RQI weighting (normalized):
 
-When markets are unresolved, focus on **RQI trend** (research process quality) and
-use **Align\*** as an online calibration proxy.
+`RQI = 0.45 * claimsDepth + 0.35 * sourceDiversity + 0.20 * judgeConfidence`
 
-## How It Works
+Why both metrics:
 
-1. Fetches active prediction markets from Polymarket/Kalshi
-2. Assigns YES and NO debater agents (configurable runtime: `claude` or `cursor-agent`)
-3. Each agent autonomously researches using 10 crypto data tools (prices, on-chain, social, news, DeFi, prediction markets)
-4. A panel of 3 judge agents evaluates both sides via Byzantine consensus
-5. Results scored against market price as ground truth
-6. An analyst agent evolves the strategy playbook between generations
+- **Align\*** tracks online calibration to market consensus.
+- **RQI** tracks research process quality even when markets have not yet settled.
 
 ## Tests
 

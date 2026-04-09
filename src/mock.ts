@@ -185,7 +185,8 @@ export function mockDebater(
 export function mockJudge(
   _question: string,
   yesArg: Argument,
-  noArg: Argument
+  noArg: Argument,
+  playbook?: Playbook
 ): Vote {
   // Deterministic scoring so showcase optimization trends are reproducible.
   const yesDiversity = new Set(yesArg.claims.map((c) => c.source)).size;
@@ -197,7 +198,14 @@ export function mockJudge(
     noArg.claims.length * 0.3 +
     noDiversity * 0.4;
 
-  const winner = yesScore >= noScore ? "YES" as const : "NO" as const;
+  let winner: "YES" | "NO";
+  if (yesScore === noScore) {
+    // In mock showcase mode, use playbook maturity to break ties so later generations
+    // produce visibly different scorecards while remaining deterministic.
+    winner = playbook && playbook.lessons.length % 2 === 0 ? "NO" : "YES";
+  } else {
+    winner = yesScore > noScore ? "YES" : "NO";
+  }
   const margin = Math.abs(yesScore - noScore);
   const confidence = Math.max(0.55, Math.min(0.9, 0.6 + margin * 0.1));
   return {

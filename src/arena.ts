@@ -44,7 +44,7 @@ async function runSingleDebate(
   // Run judges in parallel
   const votes = mock
     ? Array.from({ length: NUM_JUDGES }, () =>
-        mockJudge(market.question, yesArgument, noArgument)
+        mockJudge(market.question, yesArgument, noArgument, playbook)
       )
     : await Promise.all(
         Array.from({ length: NUM_JUDGES }, () =>

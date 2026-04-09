@@ -1,5 +1,95 @@
 # Crypto Debate Arena - Showcase Presentation
 
+## Full Speaking Script (Use This Verbatim)
+
+### Pre-stage setup (not spoken)
+
+Run once before your slot:
+
+```bash
+bash scripts/showcase-2min.sh --live --runtime cursor
+```
+
+Keep one terminal tab ready for:
+
+```bash
+bash scripts/showcase-2min.sh
+```
+
+### On-stage 2-minute script (spoken + actions)
+
+#### 0:00-0:15 - Hook
+
+Say:
+
+> "Most AI demos show one model giving one answer. We built something harder to fake: two AI agents debate opposite sides, three judges vote, and the system improves its own research strategy generation by generation."
+
+#### 0:15-0:30 - Why this matters
+
+Say:
+
+> "For live prediction markets, confidence alone is not enough. We need disagreement, evidence quality checks, and measurable calibration."
+
+#### 0:30-0:35 - Start demo
+
+Action:
+
+```bash
+bash scripts/showcase-2min.sh
+```
+
+Say while command starts:
+
+> "This is our stage-safe two-minute run: same orchestration pipeline, deterministic timing, and then an optimization report."
+
+#### 0:35-1:20 - Explain pipeline while output streams
+
+Say:
+
+> "Generation one runs YES and NO debaters with Surf-backed evidence.  
+> Three independent judges apply Byzantine consensus to pick a winner.  
+> Then the analyst mutates the playbook, and generation two reruns with updated strategy."
+
+> "So this is not static prompting. It is an automated research loop: debate, judge, mutate, repeat."
+
+#### 1:20-1:45 - Explain metrics clearly
+
+Say when report table appears:
+
+> "We track two metrics. Align-star is calibration against current market-implied probability. RQI is research quality: claim depth, source diversity, and judge confidence."
+
+> "When markets are unresolved, RQI trend is the primary optimization signal, and Align-star is the online calibration proxy."
+
+#### 1:45-2:00 - Close
+
+Say:
+
+> "In one line: we turned AI research from one-shot answers into a competitive, auditable, self-improving system."
+
+> "This can be used as a benchmark harness for any market question where evidence quality matters."
+
+### 60-second extension (if judges ask follow-ups)
+
+#### Q: "Is this real or mocked?"
+
+Say:
+
+> "On stage we run the fast deterministic path for timing safety. Before presenting, we run the live evidence mode over more markets and generations, and the same report pipeline summarizes real outputs."
+
+#### Q: "What exactly is improving?"
+
+Say:
+
+> "Two layers improve: strategy mutations in the playbook and research quality metrics, especially RQI. That gives a settlement-independent optimization signal even before markets resolve."
+
+#### Q: "Why prediction markets?"
+
+Say:
+
+> "They give continuous, information-aggregated probabilities, so we can evaluate calibration daily instead of waiting weeks for final outcomes."
+
+---
+
 ## 1) Opening Pitch (20s)
 
 We built an adversarial AI research benchmark for crypto prediction markets.

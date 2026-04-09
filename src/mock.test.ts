@@ -86,4 +86,38 @@ describe("mock showcase behavior", () => {
 
     assert.deepStrictEqual(v1, v2);
   });
+
+  it("uses playbook maturity to break ties deterministically", () => {
+    const tiedYes: Argument = {
+      side: "YES",
+      summary: "yes",
+      claims: [
+        { claim: "A", source: "market-price", data: {}, reasoning: "A" },
+        { claim: "B", source: "news-feed", data: {}, reasoning: "B" },
+      ],
+    };
+    const tiedNo: Argument = {
+      side: "NO",
+      summary: "no",
+      claims: [
+        { claim: "C", source: "market-price", data: {}, reasoning: "C" },
+        { claim: "D", source: "news-feed", data: {}, reasoning: "D" },
+      ],
+    };
+
+    const evenLessons: Playbook = {
+      ...DEFAULT_PLAYBOOK,
+      lessons: ["l1", "l2"],
+    };
+    const oddLessons: Playbook = {
+      ...DEFAULT_PLAYBOOK,
+      lessons: ["l1", "l2", "l3"],
+    };
+
+    const evenVote = mockJudge("Q", tiedYes, tiedNo, evenLessons);
+    const oddVote = mockJudge("Q", tiedYes, tiedNo, oddLessons);
+
+    assert.strictEqual(evenVote.winner, "NO");
+    assert.strictEqual(oddVote.winner, "YES");
+  });
 });
