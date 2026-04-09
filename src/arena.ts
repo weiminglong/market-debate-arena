@@ -6,6 +6,7 @@ import { runJudge } from "./judge.js";
 import { computeConsensus } from "./consensus.js";
 import { scoreDebate } from "./scorer.js";
 import type { DebateResult, GenerationResult, Market, Playbook } from "./types.js";
+import { saveGenerationResult } from "./results.js";
 
 const NUM_JUDGES = 3;
 
@@ -87,10 +88,8 @@ export async function runGeneration(
       (debates.reduce((sum, d) => sum + d.score, 0) / debates.length) * 1000
     ) / 1000;
 
-  return {
-    generation,
-    debates,
-    averageScore,
-    playbook: { ...playbook, generation },
-  };
+  const genResult: GenerationResult = { generation, debates, averageScore, playbook: { ...playbook, generation } };
+  const filepath = saveGenerationResult(genResult);
+  console.log(chalk.gray(`  Results saved: ${filepath}`));
+  return genResult;
 }
