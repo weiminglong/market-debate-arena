@@ -8,7 +8,9 @@
   },
   "scripts": {
     "start": "tsx src/index.ts",
-    "test": "tsx --test src/**/*.test.ts"
+    "test": "tsx --test src/**/*.test.ts",
+    "showcase:2min": "bash scripts/showcase-2min.sh",
+    "showcase:live": "bash scripts/showcase-2min.sh --live"
   },
   "repository": {
     "type": "git",

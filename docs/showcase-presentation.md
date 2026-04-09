@@ -76,6 +76,14 @@ Key implementation points:
 
 ## 5) 2-Minute Demo Plan
 
+Measured runtimes on current setup:
+
+- `--showcase --agent-runtime cursor --markets 1` (live): about **252s**
+- `--showcase --agent-runtime cursor --mock --markets 1`: about **1.6s**
+- `--history`: about **1.6s**
+
+Conclusion: for a strict 2-minute slot, use the fast path below on stage.
+
 ## 5.1 Preflight (before going on stage)
 
 ```bash
@@ -97,17 +105,30 @@ Say:
 
 > "This is not one model answering one prompt. It is adversarial research plus Byzantine consensus with measurable calibration."
 
-### 0:40-1:40 Run one curated live debate
+### 0:40-1:10 Run one fast debate on stage (guaranteed to finish)
 
 ```bash
-npx tsx src/index.ts --showcase --agent-runtime cursor --markets 1
+bash scripts/showcase-2min.sh
 ```
 
 Talk track:
 
-- "Showcase mode guarantees a stable market set."
-- "Runtime is pluggable (`cursor-agent` or `claude`)."
-- "Winner is judged by 3 independent judges; score is market alignment."
+- "This keeps the exact orchestration path while guaranteeing timing."
+- "Same debate pipeline, judging, scoring, and persistence."
+- "I’ll also show a real live run result next."
+
+### 1:10-1:40 Show real live evidence (pre-run)
+
+Say:
+
+> "Before this presentation, I ran the exact same flow in live mode (`--showcase --agent-runtime cursor --markets 1`). Here is the saved result and scorecard output."
+
+Tip:
+
+- Use this before going on stage:
+  `bash scripts/showcase-2min.sh --live`
+- Keep one screenshot of a recent live scorecard in your slides.
+- Keep one `results/gen-*.json` file open in your editor as backup.
 
 ### 1:40-2:00 Close with learning loop
 
@@ -144,15 +165,15 @@ A: Yes. We added a curated showcase mode, runtime switching, hardened JSON extra
 
 ## 7) Backup Plan (if live APIs degrade or timer is strict)
 
-If network or external services become unstable:
+If network or external services become unstable, keep exactly this command:
 
 ```bash
-npx tsx src/index.ts --showcase --agent-runtime cursor --mock --markets 1
+bash scripts/showcase-2min.sh
 ```
 
 Message:
 
-- "This fallback preserves the full multi-agent pipeline while using simulated data."
+- "This preserves the full multi-agent pipeline while using simulated data."
 - "The same orchestration, judging, scoring, and persistence logic still runs end-to-end."
 
 ---

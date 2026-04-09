@@ -25,6 +25,12 @@ npx tsx src/index.ts --markets 3 --agent-runtime cursor -v
 # Run curated showcase markets (stable demo path)
 npx tsx src/index.ts --showcase --agent-runtime cursor -v
 
+# Run the 2-minute showcase script (stage-safe fast flow)
+bash scripts/showcase-2min.sh
+
+# Pre-run one live showcase debate for screenshot evidence
+bash scripts/showcase-2min.sh --live
+
 # Run 5 generations of evolution
 npx tsx src/index.ts --markets 3 --generations 5 -v
 
