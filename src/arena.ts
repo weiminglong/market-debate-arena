@@ -6,6 +6,7 @@ import { runJudge } from "./judge.js";
 import { computeConsensus } from "./consensus.js";
 import { scoreDebate } from "./scorer.js";
 import { MOCK_MARKETS, mockDebater, mockJudge } from "./mock.js";
+import { getShowcaseConditionIds } from "./showcase.js";
 import type { DebateResult, GenerationResult, Market, Playbook } from "./types.js";
 import type { AgentRuntime } from "./agent-runner.js";
 import { saveGenerationResult } from "./results.js";
@@ -68,6 +69,7 @@ async function runSingleDebate(
 export interface ArenaOptions {
   marketCount: number;
   conditionId?: string;
+  showcase?: boolean;
   verbose: boolean;
   mock?: boolean;
   agentRuntime?: AgentRuntime;
@@ -86,10 +88,24 @@ export async function runGeneration(
     markets = MOCK_MARKETS.slice(0, options.marketCount);
   } else {
     try {
-      markets = await fetchMarkets({
-        count: options.marketCount,
-        conditionId: options.conditionId,
-      });
+      if (options.showcase) {
+        const curatedIds = getShowcaseConditionIds(options.marketCount);
+        const fetched = await Promise.all(
+          curatedIds.map((conditionId) => fetchMarkets({ conditionId }))
+        );
+        const deduped = new Map<string, Market>();
+        for (const market of fetched.flat()) {
+          if (market.conditionId) {
+            deduped.set(market.conditionId, market);
+          }
+        }
+        markets = Array.from(deduped.values());
+      } else {
+        markets = await fetchMarkets({
+          count: options.marketCount,
+          conditionId: options.conditionId,
+        });
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes("credits exhausted")) {

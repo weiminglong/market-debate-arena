@@ -18,6 +18,7 @@ program
   .option("-m, --markets <count>", "number of markets to debate", "3")
   .option("-g, --generations <count>", "number of evolution generations", "1")
   .option("--condition-id <id>", "specific Polymarket condition ID")
+  .option("--showcase", "use curated showcase markets for a reliable demo", false)
   .option("-v, --verbose", "show detailed agent activity", false)
   .option("--history", "show evolution history from saved results")
   .option("--mock", "use mock data instead of live APIs", false)
@@ -28,6 +29,14 @@ program
   .action(async (opts) => {
     if (opts.history) {
       showHistory();
+      return;
+    }
+
+    if (opts.showcase && opts.conditionId) {
+      console.error(
+        chalk.red("Error: --showcase cannot be used together with --condition-id.")
+      );
+      process.exitCode = 1;
       return;
     }
 
@@ -55,11 +64,15 @@ program
     } else {
       console.log(chalk.green("  Mode: LIVE (real-time crypto data via surf)\n"));
     }
+    if (opts.showcase) {
+      console.log(chalk.magenta("  Showcase mode: curated live market set\n"));
+    }
     console.log(chalk.cyan(`  Agent runtime: ${agentRuntime}\n`));
 
     const arenaOptions = {
       marketCount: parseInt(opts.markets, 10),
       conditionId: opts.conditionId,
+      showcase: opts.showcase,
       verbose: opts.verbose,
       mock: opts.mock,
       agentRuntime,

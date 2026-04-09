@@ -22,6 +22,9 @@ npx tsx src/index.ts --markets 3 -v
 # Run with Cursor Agent runtime (for showcase/demo)
 npx tsx src/index.ts --markets 3 --agent-runtime cursor -v
 
+# Run curated showcase markets (stable demo path)
+npx tsx src/index.ts --showcase --agent-runtime cursor -v
+
 # Run 5 generations of evolution
 npx tsx src/index.ts --markets 3 --generations 5 -v
 
