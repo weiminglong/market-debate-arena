@@ -10,7 +10,8 @@
     "start": "tsx src/index.ts",
     "test": "tsx --test src/**/*.test.ts",
     "showcase:2min": "bash scripts/showcase-2min.sh",
-    "showcase:live": "bash scripts/showcase-2min.sh --live"
+    "showcase:live": "bash scripts/showcase-2min.sh --live",
+    "showcase:report": "tsx src/index.ts --showcase-report"
   },
   "repository": {
     "type": "git",

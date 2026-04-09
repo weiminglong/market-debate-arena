@@ -79,8 +79,8 @@ Key implementation points:
 Measured runtimes on current setup:
 
 - `--showcase --agent-runtime cursor --markets 1` (live): about **252s**
-- `--showcase --agent-runtime cursor --mock --markets 1`: about **1.6s**
-- `--history`: about **1.6s**
+- `bash scripts/showcase-2min.sh` (fast): about **2s**
+- `--showcase-report`: about **1-2s**
 
 Conclusion: for a strict 2-minute slot, use the fast path below on stage.
 
@@ -105,7 +105,7 @@ Say:
 
 > "This is not one model answering one prompt. It is adversarial research plus Byzantine consensus with measurable calibration."
 
-### 0:40-1:10 Run one fast debate on stage (guaranteed to finish)
+### 0:40-1:20 Run fast end-to-end optimization loop
 
 ```bash
 bash scripts/showcase-2min.sh
@@ -113,33 +113,32 @@ bash scripts/showcase-2min.sh
 
 Talk track:
 
-- "This keeps the exact orchestration path while guaranteeing timing."
-- "Same debate pipeline, judging, scoring, and persistence."
-- "I’ll also show a real live run result next."
+- "This runs two generations and prints an optimization report."
+- "You can see strategy mutations and research quality changes."
+- "Markets may be unresolved, so we report both alignment proxy and research quality index."
 
-### 1:10-1:40 Show real live evidence (pre-run)
+### 1:20-1:50 Show real live evidence (pre-run)
 
 Say:
 
-> "Before this presentation, I ran the exact same flow in live mode (`--showcase --agent-runtime cursor --markets 1`). Here is the saved result and scorecard output."
+> "Before this presentation, I ran live showcase evolution (`bash scripts/showcase-2min.sh --live`). Here is the saved optimization report and scorecard output."
 
 Tip:
 
-- Use this before going on stage:
-  `bash scripts/showcase-2min.sh --live`
+- Use this before going on stage: `bash scripts/showcase-2min.sh --live`
 - Keep one screenshot of a recent live scorecard in your slides.
 - Keep one `results/gen-*.json` file open in your editor as backup.
 
-### 1:40-2:00 Close with learning loop
+### 1:50-2:00 Close
 
 ```bash
-npx tsx src/index.ts --history
+npx tsx src/index.ts --showcase-report
 ```
 
 Talk track:
 
-- "The playbook captures what the system learned and what to avoid."
-- "This is auditable self-improvement, not a black-box answer."
+- "This report summarizes automated optimization: better research behavior over generations."
+- "The process is auditable: claims, sources, judge confidence, and strategy shifts."
 
 ---
 
@@ -152,6 +151,10 @@ A: We explicitly model disagreement, adjudication, and measurable calibration ag
 ### Q: Why use market probability as ground truth?
 
 A: It is immediate, always available, and information-aggregated. We can run this benchmark on live markets any time without waiting weeks for final resolution.
+
+### Q: But markets are not settled yet, so what are you actually optimizing?
+
+A: Two layers. First, **Align\*** is an online proxy against current market consensus. Second, we optimize a settlement-independent **RQI** from claim depth, source diversity, and judge confidence. Settlement data is used later for retrospective validation.
 
 ### Q: How do you prevent hallucinated "evidence"?
 
@@ -208,8 +211,8 @@ Message:
 ## 11) 2-Minute Presenter Checklist
 
 - [ ] Confirm `surf auth` is active
-- [ ] Use `--showcase --agent-runtime cursor --markets 1`
-- [ ] Keep fallback command (`--mock --markets 1`) ready
+- [ ] Run `bash scripts/showcase-2min.sh` on stage
+- [ ] Pre-run `bash scripts/showcase-2min.sh --live` before stage
 - [ ] Keep one saved result screenshot as hard backup
-- [ ] End with `--history` if time remains
+- [ ] End with `npx tsx src/index.ts --showcase-report`
 

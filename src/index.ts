@@ -7,6 +7,7 @@ import { runGeneration } from "./arena.js";
 import { runEvolution } from "./evolution/runner.js";
 import { loadPlaybook } from "./evolution/playbook.js";
 import { loadAllResults } from "./results.js";
+import { showLatestShowcaseReport } from "./showcase-report.js";
 import { parseAgentRuntime } from "./agent-runner.js";
 import type { GenerationResult } from "./types.js";
 
@@ -19,6 +20,7 @@ program
   .option("-g, --generations <count>", "number of evolution generations", "1")
   .option("--condition-id <id>", "specific Polymarket condition ID")
   .option("--showcase", "use curated showcase markets for a reliable demo", false)
+  .option("--showcase-report", "show optimization report for latest saved run")
   .option("-v, --verbose", "show detailed agent activity", false)
   .option("--history", "show evolution history from saved results")
   .option("--mock", "use mock data instead of live APIs", false)
@@ -27,6 +29,11 @@ program
     "agent runtime: claude or cursor (default: claude)"
   )
   .action(async (opts) => {
+    if (opts.showcaseReport) {
+      showLatestShowcaseReport();
+      return;
+    }
+
     if (opts.history) {
       showHistory();
       return;
@@ -69,6 +76,8 @@ program
     }
     console.log(chalk.cyan(`  Agent runtime: ${agentRuntime}\n`));
 
+    const runId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
     const arenaOptions = {
       marketCount: parseInt(opts.markets, 10),
       conditionId: opts.conditionId,
@@ -76,6 +85,7 @@ program
       verbose: opts.verbose,
       mock: opts.mock,
       agentRuntime,
+      runId,
     };
 
     const generations = parseInt(opts.generations, 10);

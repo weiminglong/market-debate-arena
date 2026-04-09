@@ -8,7 +8,7 @@ Usage:
 
 Modes:
   --fast  Run the guaranteed 2-minute stage flow (default).
-  --live  Run one real live showcase debate, then history.
+  --live  Run real live generations for pre-demo evidence, then optimization report.
 
 Examples:
   bash scripts/showcase-2min.sh
@@ -44,15 +44,15 @@ echo "[preflight] Checking Surf auth..."
 surf auth >/dev/null
 
 if [[ "$MODE" == "live" ]]; then
-  echo "[demo] Running live showcase debate (this can take a few minutes)..."
-  npx tsx src/index.ts --showcase --agent-runtime cursor --markets 1
+  echo "[demo] Running live showcase evolution (this can take several minutes)..."
+  npx tsx src/index.ts --showcase --agent-runtime cursor --markets 1 --generations 2
 else
   echo "[demo] Running fast 2-minute showcase flow..."
-  npx tsx src/index.ts --showcase --agent-runtime cursor --mock --markets 1
+  npx tsx src/index.ts --showcase --agent-runtime cursor --mock --markets 1 --generations 2
 fi
 
-echo "[demo] Showing strategy/history snapshot..."
-npx tsx src/index.ts --history
+echo "[demo] Showing optimization report..."
+npx tsx src/index.ts --showcase-report
 
 if [[ "$MODE" == "fast" ]]; then
   cat <<'EOF'

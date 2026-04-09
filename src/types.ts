@@ -48,6 +48,15 @@ export interface GenerationResult {
   debates: DebateResult[];
   averageScore: number;
   playbook: Playbook;
+  metadata?: GenerationMetadata;
+}
+
+export interface GenerationMetadata {
+  runId: string;
+  createdAt: string;
+  runtime: "claude" | "cursor";
+  mock: boolean;
+  showcase: boolean;
 }
 
 export interface Playbook {

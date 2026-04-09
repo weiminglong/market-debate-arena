@@ -73,6 +73,7 @@ export interface ArenaOptions {
   verbose: boolean;
   mock?: boolean;
   agentRuntime?: AgentRuntime;
+  runId?: string;
 }
 
 export async function runGeneration(
@@ -80,6 +81,9 @@ export async function runGeneration(
   options: ArenaOptions
 ): Promise<GenerationResult> {
   const generation = playbook.generation + 1;
+  const runtime = options.agentRuntime || "claude";
+  const runId =
+    options.runId || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   console.log(chalk.bold(`\n=== Generation ${generation} ===`));
 
   // Fetch markets
@@ -129,7 +133,7 @@ export async function runGeneration(
       playbook,
       options.verbose,
       options.mock,
-      options.agentRuntime || "claude"
+      runtime
     );
     debates.push(result);
   }
@@ -139,7 +143,19 @@ export async function runGeneration(
       (debates.reduce((sum, d) => sum + d.score, 0) / debates.length) * 1000
     ) / 1000;
 
-  const genResult: GenerationResult = { generation, debates, averageScore, playbook: { ...playbook, generation } };
+  const genResult: GenerationResult = {
+    generation,
+    debates,
+    averageScore,
+    playbook: { ...playbook, generation },
+    metadata: {
+      runId,
+      createdAt: new Date().toISOString(),
+      runtime,
+      mock: Boolean(options.mock),
+      showcase: Boolean(options.showcase),
+    },
+  };
   const filepath = saveGenerationResult(genResult);
   console.log(chalk.gray(`  Results saved: ${filepath}`));
   return genResult;
