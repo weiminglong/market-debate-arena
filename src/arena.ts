@@ -5,6 +5,7 @@ import { runDebater } from "./debater.js";
 import { runJudge } from "./judge.js";
 import { computeConsensus } from "./consensus.js";
 import { scoreDebate } from "./scorer.js";
+import { MOCK_MARKETS, mockDebater, mockJudge } from "./mock.js";
 import type { DebateResult, GenerationResult, Market, Playbook } from "./types.js";
 import { saveGenerationResult } from "./results.js";
 
@@ -13,7 +14,8 @@ const NUM_JUDGES = 3;
 async function runSingleDebate(
   market: Market,
   playbook: Playbook,
-  verbose: boolean
+  verbose: boolean,
+  mock: boolean = false
 ): Promise<DebateResult> {
   if (verbose) {
     console.log(chalk.cyan(`\n  Debating: "${market.question}"`));
@@ -21,12 +23,14 @@ async function runSingleDebate(
   }
 
   // Run YES and NO debaters in parallel
-  if (verbose) console.log(chalk.yellow("  Starting debaters..."));
+  if (verbose) console.log(chalk.yellow(mock ? "  Running mock debaters..." : "  Starting debaters..."));
 
-  const [yesArgument, noArgument] = await Promise.all([
-    runDebater("YES", market, playbook, verbose),
-    runDebater("NO", market, playbook, verbose),
-  ]);
+  const [yesArgument, noArgument] = mock
+    ? [mockDebater("YES", market, playbook), mockDebater("NO", market, playbook)]
+    : await Promise.all([
+        runDebater("YES", market, playbook, verbose),
+        runDebater("NO", market, playbook, verbose),
+      ]);
 
   if (verbose) {
     console.log(chalk.green(`  YES claims: ${yesArgument.claims.length}`));
@@ -35,11 +39,15 @@ async function runSingleDebate(
   }
 
   // Run judges in parallel
-  const votes = await Promise.all(
-    Array.from({ length: NUM_JUDGES }, () =>
-      runJudge(market.question, yesArgument, noArgument)
-    )
-  );
+  const votes = mock
+    ? Array.from({ length: NUM_JUDGES }, () =>
+        mockJudge(market.question, yesArgument, noArgument)
+      )
+    : await Promise.all(
+        Array.from({ length: NUM_JUDGES }, () =>
+          runJudge(market.question, yesArgument, noArgument)
+        )
+      );
 
   const consensus = computeConsensus(votes);
   const score = scoreDebate(consensus.winner, market.latestPrice);
@@ -59,6 +67,7 @@ export interface ArenaOptions {
   marketCount: number;
   conditionId?: string;
   verbose: boolean;
+  mock?: boolean;
 }
 
 export async function runGeneration(
@@ -69,17 +78,19 @@ export async function runGeneration(
   console.log(chalk.bold(`\n=== Generation ${generation} ===`));
 
   // Fetch markets
-  const markets = await fetchMarkets({
-    count: options.marketCount,
-    conditionId: options.conditionId,
-  });
+  const markets = options.mock
+    ? MOCK_MARKETS.slice(0, options.marketCount)
+    : await fetchMarkets({
+        count: options.marketCount,
+        conditionId: options.conditionId,
+      });
 
   console.log(`Found ${markets.length} markets to debate.\n`);
 
   // Run debates sequentially to avoid overwhelming the API
   const debates: DebateResult[] = [];
   for (const market of markets) {
-    const result = await runSingleDebate(market, playbook, options.verbose);
+    const result = await runSingleDebate(market, playbook, options.verbose, options.mock);
     debates.push(result);
   }
 

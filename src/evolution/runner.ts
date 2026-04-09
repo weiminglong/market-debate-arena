@@ -2,6 +2,7 @@ import chalk from "chalk";
 import { runGeneration, type ArenaOptions } from "../arena.js";
 import { loadPlaybook, savePlaybook } from "./playbook.js";
 import { evolvePlaybook } from "./analyst.js";
+import { mockAnalyst } from "../mock.js";
 
 interface EvolutionSummary {
   generation: number;
@@ -22,10 +23,22 @@ export async function runEvolution(
     const result = await runGeneration(playbook, options);
 
     console.log(chalk.yellow("\n  Analyst evolving strategy..."));
-    const { playbook: newPlaybook, keyMutation } = await evolvePlaybook(
-      result,
-      playbook
-    );
+    let newPlaybook;
+    let keyMutation: string;
+    if (options.mock) {
+      const mockResult = mockAnalyst(playbook, result.averageScore);
+      newPlaybook = {
+        generation: result.generation,
+        lessons: mockResult.lessons,
+        toolPriority: mockResult.toolPriority,
+        avoidPatterns: mockResult.avoidPatterns,
+      };
+      keyMutation = mockResult.keyMutation;
+    } else {
+      const evolved = await evolvePlaybook(result, playbook);
+      newPlaybook = evolved.playbook;
+      keyMutation = evolved.keyMutation;
+    }
 
     const improvement =
       previousScore === 0

@@ -18,6 +18,7 @@ program
   .option("--condition-id <id>", "specific Polymarket condition ID")
   .option("-v, --verbose", "show detailed agent activity", false)
   .option("--history", "show evolution history from saved results")
+  .option("--mock", "use mock data instead of live APIs", false)
   .action(async (opts) => {
     if (opts.history) {
       showHistory();
@@ -35,6 +36,7 @@ program
       marketCount: parseInt(opts.markets, 10),
       conditionId: opts.conditionId,
       verbose: opts.verbose,
+      mock: opts.mock,
     };
 
     const generations = parseInt(opts.generations, 10);
