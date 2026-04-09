@@ -2,6 +2,8 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
+const SURF_TIMEOUT_MS = [45_000, 90_000] as const;
+const SURF_MAX_BUFFER = 1024 * 1024 * 20;
 
 function extractJsonCandidate(raw: string): string | null {
   const text = raw.trim();
@@ -75,8 +77,11 @@ export function parseSurfOutput(command: string, stdout: string): unknown {
   } catch {
     const candidate = extractJsonCandidate(raw);
     if (!candidate) {
+      const looksJson = raw.startsWith("{") || raw.startsWith("[");
       throw new Error(
-        `surf ${command} returned non-JSON output: ${raw.slice(0, 200)}`
+        `surf ${command} returned ${
+          looksJson ? "truncated or invalid JSON output" : "non-JSON output"
+        }: ${raw.slice(0, 200)}`
       );
     }
     try {
@@ -109,6 +114,18 @@ export function parseSurfOutput(command: string, stdout: string): unknown {
   return parsed;
 }
 
+function isPermanentCliError(message: string): boolean {
+  return /unknown command|unknown flag|validation failed|expected value to be one of/i.test(
+    message
+  );
+}
+
+function isRetryableFailure(message: string): boolean {
+  return /timed out|ETIMEDOUT|maxbuffer|truncated or invalid JSON output|returned empty output/i.test(
+    message
+  );
+}
+
 export async function runSurf(
   command: string,
   params: Record<string, string | number | boolean>
@@ -123,38 +140,51 @@ export async function runSurf(
     }
   }
 
-  try {
-    const { stdout } = await execFileAsync("surf", args, {
-      timeout: 30_000,
-    });
+  let lastError: Error | null = null;
 
-    return parseSurfOutput(command, stdout);
-  } catch (e: unknown) {
-    if (e instanceof Error && e.message.includes("credits exhausted")) {
-      throw e;
-    }
+  for (let attempt = 0; attempt < SURF_TIMEOUT_MS.length; attempt++) {
+    try {
+      const { stdout } = await execFileAsync("surf", args, {
+        timeout: SURF_TIMEOUT_MS[attempt],
+        maxBuffer: SURF_MAX_BUFFER,
+      });
+      return parseSurfOutput(command, stdout);
+    } catch (e: unknown) {
+      const err = e as { stdout?: string; stderr?: string; code?: number | string };
+      let surfacedMessage = "";
 
-    // On non-zero exit codes, try to parse stdout error envelope if present.
-    const err = e as { stdout?: string; stderr?: string; code?: number };
-    if (err.stdout) {
-      try {
-        parseSurfOutput(command, err.stdout);
-      } catch (parseErr) {
-        if (
-          parseErr instanceof Error &&
-          (parseErr.message.includes("credits exhausted") ||
-            parseErr.message.startsWith("Surf API error:"))
-        ) {
-          throw parseErr;
+      // Try to extract useful API error details from stdout.
+      if (err.stdout) {
+        try {
+          parseSurfOutput(command, err.stdout);
+        } catch (parseErr) {
+          if (
+            parseErr instanceof Error &&
+            (parseErr.message.includes("credits exhausted") ||
+              parseErr.message.startsWith("Surf API error:"))
+          ) {
+            throw parseErr;
+          }
+          if (parseErr instanceof Error) {
+            surfacedMessage = parseErr.message;
+          }
         }
       }
-    }
 
-    if (e instanceof Error) {
-      throw new Error(
-        `surf ${command} failed: ${err.stderr?.trim() || e.message}`
-      );
+      const stderrMessage = err.stderr?.trim() || "";
+      const fallbackMessage = e instanceof Error ? e.message : "";
+      const message = surfacedMessage || stderrMessage || fallbackMessage || "unknown error";
+      lastError = new Error(`surf ${command} failed: ${message}`);
+
+      const permanent = isPermanentCliError(message);
+      const retryable = isRetryableFailure(message);
+
+      if (!permanent && retryable && attempt < SURF_TIMEOUT_MS.length - 1) {
+        continue;
+      }
+      throw lastError;
     }
-    throw new Error(`surf ${command} failed`);
   }
+
+  throw lastError || new Error(`surf ${command} failed`);
 }
