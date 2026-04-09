@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import chalk from "chalk";
+import Table from "cli-table3";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { runGeneration } from "./arena.js";
@@ -25,12 +26,18 @@ program
       return;
     }
 
-    console.log(chalk.bold("\n  Crypto Debate Arena\n"));
-    console.log(
-      chalk.gray(
-        "Adversarial AI research benchmark on prediction markets\n"
-      )
-    );
+    console.log(chalk.bold(`
+  ╔══════════════════════════════════════════════════╗
+  ║           CRYPTO DEBATE ARENA                    ║
+  ║   Adversarial AI Research Benchmark              ║
+  ║   on Prediction Markets                          ║
+  ╚══════════════════════════════════════════════════╝
+`));
+    if (opts.mock) {
+      console.log(chalk.yellow("  Mode: MOCK (simulated data)\n"));
+    } else {
+      console.log(chalk.green("  Mode: LIVE (real-time crypto data via surf)\n"));
+    }
 
     const arenaOptions = {
       marketCount: parseInt(opts.markets, 10),
@@ -53,34 +60,38 @@ program
 function printScorecard(result: GenerationResult): void {
   console.log(chalk.bold("\n=== Scorecard ===\n"));
 
-  const colWidths = { question: 42, winner: 8, price: 10, score: 7 };
-  const header =
-    "Market".padEnd(colWidths.question) +
-    "Winner".padEnd(colWidths.winner) +
-    "Mkt Price".padEnd(colWidths.price) +
-    "Score";
-  console.log(header);
-  console.log("-".repeat(70));
+  const table = new Table({
+    head: ["Market", "Winner", "Votes", "Mkt Price", "Score"],
+    colWidths: [40, 8, 12, 11, 8],
+    style: { head: ["cyan"] },
+  });
 
   for (const debate of result.debates) {
     const question =
-      debate.market.question.length > 40
-        ? debate.market.question.slice(0, 37) + "..."
+      debate.market.question.length > 38
+        ? debate.market.question.slice(0, 35) + "..."
         : debate.market.question;
     const winColor =
       debate.consensus.winner === "YES" ? chalk.green : chalk.red;
-    const line =
-      question.padEnd(colWidths.question) +
-      winColor(debate.consensus.winner.padEnd(colWidths.winner)) +
-      debate.market.latestPrice.toFixed(2).padEnd(colWidths.price) +
-      debate.score.toFixed(3);
-    console.log(line);
+    const voteBreakdown = `${debate.consensus.votes.filter((v) => v.winner === "YES").length}-${debate.consensus.votes.filter((v) => v.winner === "NO").length} ${debate.consensus.unanimous ? "(U)" : "(M)"}`;
+    table.push([
+      question,
+      winColor(debate.consensus.winner),
+      voteBreakdown,
+      debate.market.latestPrice.toFixed(2),
+      debate.score.toFixed(3),
+    ]);
   }
 
-  console.log("-".repeat(70));
-  console.log(
-    `${"Aggregate".padEnd(colWidths.question)}${"".padEnd(colWidths.winner)}${"".padEnd(colWidths.price)}${chalk.bold(result.averageScore.toFixed(3))}`
-  );
+  table.push([
+    chalk.bold("Aggregate"),
+    "",
+    "",
+    "",
+    chalk.bold(result.averageScore.toFixed(3)),
+  ]);
+
+  console.log(table.toString());
   console.log("");
 }
 

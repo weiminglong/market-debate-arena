@@ -1,4 +1,5 @@
 import chalk from "chalk";
+import Table from "cli-table3";
 import { runGeneration, type ArenaOptions } from "../arena.js";
 import { loadPlaybook, savePlaybook } from "./playbook.js";
 import { evolvePlaybook } from "./analyst.js";
@@ -70,16 +71,27 @@ export async function runEvolution(
 
 function printEvolutionTable(history: EvolutionSummary[]): void {
   console.log(chalk.bold("\n\n=== Evolution Summary ===\n"));
-  console.log(
-    `${"Gen".padEnd(6)}${"Score".padEnd(10)}${"Change".padEnd(12)}Mutation`
-  );
-  console.log("-".repeat(70));
+
+  const table = new Table({
+    head: ["Gen", "Score", "Change", "Key Mutation"],
+    colWidths: [6, 10, 10, 48],
+    style: { head: ["cyan"] },
+  });
 
   for (const row of history) {
-    const scoreStr = row.averageScore.toFixed(3).padEnd(10);
-    const changeStr = row.improvement.padEnd(12);
-    console.log(`${String(row.generation).padEnd(6)}${scoreStr}${changeStr}${row.keyMutation}`);
+    const changeColor = row.improvement === "baseline"
+      ? chalk.gray
+      : row.improvement.startsWith("-")
+        ? chalk.red
+        : chalk.green;
+    table.push([
+      String(row.generation),
+      row.averageScore.toFixed(3),
+      changeColor(row.improvement),
+      row.keyMutation,
+    ]);
   }
 
+  console.log(table.toString());
   console.log("");
 }

@@ -78,12 +78,27 @@ export async function runGeneration(
   console.log(chalk.bold(`\n=== Generation ${generation} ===`));
 
   // Fetch markets
-  const markets = options.mock
-    ? MOCK_MARKETS.slice(0, options.marketCount)
-    : await fetchMarkets({
+  let markets: Market[];
+  if (options.mock) {
+    markets = MOCK_MARKETS.slice(0, options.marketCount);
+  } else {
+    try {
+      markets = await fetchMarkets({
         count: options.marketCount,
         conditionId: options.conditionId,
       });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("credits exhausted")) {
+        console.log(chalk.yellow(`\n  Surf API credits exhausted — falling back to mock markets.`));
+        console.log(chalk.gray(`  To use live data, run: surf auth --api-key <key>\n`));
+        markets = MOCK_MARKETS.slice(0, options.marketCount);
+        options.mock = true;
+      } else {
+        throw e;
+      }
+    }
+  }
 
   console.log(`Found ${markets.length} markets to debate.\n`);
 
