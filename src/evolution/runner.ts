@@ -36,7 +36,11 @@ export async function runEvolution(
       };
       keyMutation = mockResult.keyMutation;
     } else {
-      const evolved = await evolvePlaybook(result, playbook);
+      const evolved = await evolvePlaybook(
+        result,
+        playbook,
+        options.agentRuntime || "claude"
+      );
       newPlaybook = evolved.playbook;
       keyMutation = evolved.keyMutation;
     }

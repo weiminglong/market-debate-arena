@@ -7,6 +7,7 @@ import { computeConsensus } from "./consensus.js";
 import { scoreDebate } from "./scorer.js";
 import { MOCK_MARKETS, mockDebater, mockJudge } from "./mock.js";
 import type { DebateResult, GenerationResult, Market, Playbook } from "./types.js";
+import type { AgentRuntime } from "./agent-runner.js";
 import { saveGenerationResult } from "./results.js";
 
 const NUM_JUDGES = 3;
@@ -15,7 +16,8 @@ async function runSingleDebate(
   market: Market,
   playbook: Playbook,
   verbose: boolean,
-  mock: boolean = false
+  mock: boolean = false,
+  agentRuntime: AgentRuntime = "claude"
 ): Promise<DebateResult> {
   if (verbose) {
     console.log(chalk.cyan(`\n  Debating: "${market.question}"`));
@@ -28,8 +30,8 @@ async function runSingleDebate(
   const [yesArgument, noArgument] = mock
     ? [mockDebater("YES", market, playbook), mockDebater("NO", market, playbook)]
     : await Promise.all([
-        runDebater("YES", market, playbook, verbose),
-        runDebater("NO", market, playbook, verbose),
+        runDebater("YES", market, playbook, verbose, agentRuntime),
+        runDebater("NO", market, playbook, verbose, agentRuntime),
       ]);
 
   if (verbose) {
@@ -45,7 +47,7 @@ async function runSingleDebate(
       )
     : await Promise.all(
         Array.from({ length: NUM_JUDGES }, () =>
-          runJudge(market.question, yesArgument, noArgument)
+          runJudge(market.question, yesArgument, noArgument, agentRuntime)
         )
       );
 
@@ -68,6 +70,7 @@ export interface ArenaOptions {
   conditionId?: string;
   verbose: boolean;
   mock?: boolean;
+  agentRuntime?: AgentRuntime;
 }
 
 export async function runGeneration(
@@ -105,7 +108,13 @@ export async function runGeneration(
   // Run debates sequentially to avoid overwhelming the API
   const debates: DebateResult[] = [];
   for (const market of markets) {
-    const result = await runSingleDebate(market, playbook, options.verbose, options.mock);
+    const result = await runSingleDebate(
+      market,
+      playbook,
+      options.verbose,
+      options.mock,
+      options.agentRuntime || "claude"
+    );
     debates.push(result);
   }
 

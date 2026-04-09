@@ -1,4 +1,5 @@
-import { runClaude } from "./claude-runner.js";
+import { runAgent, type AgentRuntime } from "./agent-runner.js";
+import { extractLastJSONObject } from "./json-extract.js";
 import type { Argument, Market, Playbook, Side } from "./types.js";
 
 function buildSystemPrompt(side: Side, market: Market, playbook: Playbook): string {
@@ -62,7 +63,8 @@ export async function runDebater(
   side: Side,
   market: Market,
   playbook: Playbook,
-  verbose: boolean = false
+  verbose: boolean = false,
+  runtime: AgentRuntime = "claude"
 ): Promise<Argument> {
   if (verbose) {
     console.log(`    [${side}] Researching with surf tools...`);
@@ -70,7 +72,7 @@ export async function runDebater(
 
   const userPrompt = `Research and build your case for ${side} on: "${market.question}". Run surf commands to gather evidence, then present your structured argument as JSON.`;
 
-  const output = await runClaude(userPrompt, {
+  const output = await runAgent(runtime, userPrompt, {
     systemPrompt: buildSystemPrompt(side, market, playbook),
     allowBash: true,
     model: "sonnet",
@@ -85,21 +87,8 @@ export async function runDebater(
 }
 
 function parseArgument(text: string, side: Side): Argument {
-  // Find the last JSON object in the output (the final argument)
-  const jsonMatches = text.match(/\{[\s\S]*?"side"[\s\S]*?"claims"[\s\S]*?\}/g);
-  const jsonStr = jsonMatches ? jsonMatches[jsonMatches.length - 1] : null;
-
+  const jsonStr = extractLastJSONObject(text);
   if (!jsonStr) {
-    // Try a simpler match for any JSON object
-    const simpleMatch = text.match(/\{[\s\S]*\}$/m);
-    if (simpleMatch) {
-      try {
-        const parsed = JSON.parse(simpleMatch[0]) as Argument;
-        return { ...parsed, side };
-      } catch {
-        // fall through
-      }
-    }
     return {
       side,
       claims: [
@@ -115,8 +104,15 @@ function parseArgument(text: string, side: Side): Argument {
   }
 
   try {
-    const parsed = JSON.parse(jsonStr) as Argument;
-    return { ...parsed, side };
+    const parsed = JSON.parse(jsonStr) as Partial<Argument>;
+    return {
+      side,
+      claims: Array.isArray(parsed.claims) ? parsed.claims : [],
+      summary:
+        typeof parsed.summary === "string"
+          ? parsed.summary
+          : text.slice(0, 500),
+    };
   } catch {
     return {
       side,

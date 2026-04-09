@@ -9,7 +9,8 @@ npm install
 ```
 
 Requires:
-- `ANTHROPIC_API_KEY` environment variable
+- `claude` CLI installed and authenticated (default runtime)
+- `cursor-agent` CLI installed and authenticated (optional runtime: `--agent-runtime cursor`)
 - `surf` CLI installed and configured (`curl -fsSL https://downloads.asksurf.ai/cli/releases/install.sh | sh`)
 
 ## Usage
@@ -17,6 +18,9 @@ Requires:
 ```bash
 # Run a single debate on 3 markets
 npx tsx src/index.ts --markets 3 -v
+
+# Run with Cursor Agent runtime (for showcase/demo)
+npx tsx src/index.ts --markets 3 --agent-runtime cursor -v
 
 # Run 5 generations of evolution
 npx tsx src/index.ts --markets 3 --generations 5 -v
@@ -31,7 +35,7 @@ npx tsx src/index.ts --history
 ## How It Works
 
 1. Fetches active prediction markets from Polymarket/Kalshi
-2. Assigns YES and NO debater agents (Claude with tool use)
+2. Assigns YES and NO debater agents (configurable runtime: `claude` or `cursor-agent`)
 3. Each agent autonomously researches using 10 crypto data tools (prices, on-chain, social, news, DeFi, prediction markets)
 4. A panel of 3 judge agents evaluates both sides via Byzantine consensus
 5. Results scored against market price as ground truth

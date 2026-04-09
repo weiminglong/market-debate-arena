@@ -7,6 +7,7 @@ import { runGeneration } from "./arena.js";
 import { runEvolution } from "./evolution/runner.js";
 import { loadPlaybook } from "./evolution/playbook.js";
 import { loadAllResults } from "./results.js";
+import { parseAgentRuntime } from "./agent-runner.js";
 import type { GenerationResult } from "./types.js";
 
 const program = new Command();
@@ -20,9 +21,25 @@ program
   .option("-v, --verbose", "show detailed agent activity", false)
   .option("--history", "show evolution history from saved results")
   .option("--mock", "use mock data instead of live APIs", false)
+  .option(
+    "--agent-runtime <runtime>",
+    "agent runtime: claude or cursor (default: claude)"
+  )
   .action(async (opts) => {
     if (opts.history) {
       showHistory();
+      return;
+    }
+
+    let agentRuntime;
+    try {
+      agentRuntime = parseAgentRuntime(
+        opts.agentRuntime || process.env.AGENT_RUNTIME
+      );
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(chalk.red(`Error: ${msg}`));
+      process.exitCode = 1;
       return;
     }
 
@@ -38,12 +55,14 @@ program
     } else {
       console.log(chalk.green("  Mode: LIVE (real-time crypto data via surf)\n"));
     }
+    console.log(chalk.cyan(`  Agent runtime: ${agentRuntime}\n`));
 
     const arenaOptions = {
       marketCount: parseInt(opts.markets, 10),
       conditionId: opts.conditionId,
       verbose: opts.verbose,
       mock: opts.mock,
+      agentRuntime,
     };
 
     const generations = parseInt(opts.generations, 10);

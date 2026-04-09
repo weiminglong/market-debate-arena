@@ -1,4 +1,5 @@
-import { runClaude } from "../claude-runner.js";
+import { runAgent, type AgentRuntime } from "../agent-runner.js";
+import { extractLastJSONObject } from "../json-extract.js";
 import type { GenerationResult, Playbook } from "../types.js";
 
 const ANALYST_SYSTEM = `You are a research strategy analyst. You review debate results to identify what research strategies worked and evolve the strategy playbook.
@@ -28,7 +29,8 @@ IMPORTANT: Only output the JSON object. No other text.`;
 
 export async function evolvePlaybook(
   generationResult: GenerationResult,
-  currentPlaybook: Playbook
+  currentPlaybook: Playbook,
+  runtime: AgentRuntime = "claude"
 ): Promise<{ playbook: Playbook; keyMutation: string }> {
   const debateSummaries = generationResult.debates.map((d) => ({
     question: d.market.question,
@@ -60,18 +62,18 @@ Analyze these results and produce an updated playbook. Focus on:
 2. What patterns did judges reward or penalize?
 3. Which current lessons held up? Which should be dropped?`;
 
-  const output = await runClaude(prompt, {
+  const output = await runAgent(runtime, prompt, {
     systemPrompt: ANALYST_SYSTEM,
     model: "sonnet",
   });
 
-  const jsonMatch = output.match(/\{[\s\S]*\}/);
+  const jsonMatch = extractLastJSONObject(output);
   if (!jsonMatch) {
     return { playbook: currentPlaybook, keyMutation: "analyst returned non-JSON" };
   }
 
   try {
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = JSON.parse(jsonMatch);
     const newPlaybook: Playbook = {
       generation: generationResult.generation,
       lessons: parsed.lessons || currentPlaybook.lessons,

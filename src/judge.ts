@@ -1,4 +1,5 @@
-import { runClaude } from "./claude-runner.js";
+import { runAgent, type AgentRuntime } from "./agent-runner.js";
+import { extractLastJSONObject } from "./json-extract.js";
 import type { Argument, Vote } from "./types.js";
 
 const JUDGE_SYSTEM = `You are an impartial judge evaluating a debate between two AI research agents about a prediction market question. Each agent has presented evidence-backed arguments for their side.
@@ -21,7 +22,8 @@ IMPORTANT: Only output the JSON object. No other text.`;
 export async function runJudge(
   question: string,
   yesArgument: Argument,
-  noArgument: Argument
+  noArgument: Argument,
+  runtime: AgentRuntime = "claude"
 ): Promise<Vote> {
   const prompt = `PREDICTION MARKET QUESTION: ${question}
 
@@ -49,7 +51,7 @@ ${noArgument.claims
 
 Which side presented a stronger, more well-evidenced case? Vote now.`;
 
-  const output = await runClaude(prompt, {
+  const output = await runAgent(runtime, prompt, {
     systemPrompt: JUDGE_SYSTEM,
     model: "haiku",
   });
@@ -58,13 +60,13 @@ Which side presented a stronger, more well-evidenced case? Vote now.`;
 }
 
 function parseVote(text: string): Vote {
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  const jsonMatch = extractLastJSONObject(text);
   if (!jsonMatch) {
     return { winner: "YES", confidence: 0.5, reasoning: text };
   }
 
   try {
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = JSON.parse(jsonMatch);
     return {
       winner: parsed.winner === "NO" ? "NO" : "YES",
       confidence: Math.max(0, Math.min(1, parsed.confidence || 0.5)),
