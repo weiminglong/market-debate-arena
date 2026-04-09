@@ -1,7 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { runClaude } from "../claude-runner.js";
 import type { GenerationResult, Playbook } from "../types.js";
-
-const client = new Anthropic();
 
 const ANALYST_SYSTEM = `You are a research strategy analyst. You review debate results to identify what research strategies worked and evolve the strategy playbook.
 
@@ -62,19 +60,12 @@ Analyze these results and produce an updated playbook. Focus on:
 2. What patterns did judges reward or penalize?
 3. Which current lessons held up? Which should be dropped?`;
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 2048,
-    system: ANALYST_SYSTEM,
-    messages: [{ role: "user", content: prompt }],
+  const output = await runClaude(prompt, {
+    systemPrompt: ANALYST_SYSTEM,
+    model: "sonnet",
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    return { playbook: currentPlaybook, keyMutation: "analyst failed to respond" };
-  }
-
-  const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
+  const jsonMatch = output.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     return { playbook: currentPlaybook, keyMutation: "analyst returned non-JSON" };
   }

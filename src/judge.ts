@@ -1,7 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { runClaude } from "./claude-runner.js";
 import type { Argument, Vote } from "./types.js";
-
-const client = new Anthropic();
 
 const JUDGE_SYSTEM = `You are an impartial judge evaluating a debate between two AI research agents about a prediction market question. Each agent has presented evidence-backed arguments for their side.
 
@@ -51,19 +49,12 @@ ${noArgument.claims
 
 Which side presented a stronger, more well-evidenced case? Vote now.`;
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1024,
-    system: JUDGE_SYSTEM,
-    messages: [{ role: "user", content: prompt }],
+  const output = await runClaude(prompt, {
+    systemPrompt: JUDGE_SYSTEM,
+    model: "haiku",
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("Judge returned no text");
-  }
-
-  return parseVote(textBlock.text);
+  return parseVote(output);
 }
 
 function parseVote(text: string): Vote {
