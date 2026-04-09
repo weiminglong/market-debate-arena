@@ -65,26 +65,118 @@ const NO_CLAIM_TEMPLATES = [
   { source: "market-ranking", claim: "Token losing market cap rank, being overtaken by competitors" },
 ];
 
-function pickRandom<T>(arr: T[], n: number): T[] {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, n);
+const TOOL_SOURCE_MAP: Record<string, string> = {
+  getPrice: "market-price",
+  getTechnicalIndicator: "market-price-indicator",
+  getSmartMoney: "polymarket-smart-money",
+  getOnChainIndicator: "market-onchain-indicator",
+  getSocialMindshare: "social-mindshare",
+  getNewsFeed: "news-feed",
+  getFearGreed: "market-fear-greed",
+  getDeFiMetrics: "project-defi-metrics",
+  getMarketRanking: "market-ranking",
+  getSocialDetail: "social-detail",
+};
+
+const MUTATION_PLAN = [
+  {
+    lesson: "Prioritize smart money evidence before sentiment-driven signals",
+    toolPriority: [
+      "getSmartMoney", "getPrice", "getOnChainIndicator", "getNewsFeed",
+      "getTechnicalIndicator", "getSocialMindshare", "getFearGreed", "getDeFiMetrics",
+      "getMarketRanking", "getSocialDetail",
+    ],
+    avoid: "relying on a single data source",
+  },
+  {
+    lesson: "Increase source diversity by requiring at least 4 unique sources",
+    toolPriority: [
+      "getSmartMoney", "getPrice", "getNewsFeed", "getOnChainIndicator",
+      "getTechnicalIndicator", "getSocialMindshare", "getDeFiMetrics", "getFearGreed",
+      "getMarketRanking", "getSocialDetail",
+    ],
+    avoid: "repeating the same tool with no new signal",
+  },
+  {
+    lesson: "Quantify claims with concrete values instead of qualitative wording",
+    toolPriority: [
+      "getPrice", "getOnChainIndicator", "getSmartMoney", "getTechnicalIndicator",
+      "getNewsFeed", "getSocialMindshare", "getFearGreed", "getDeFiMetrics",
+      "getMarketRanking", "getSocialDetail",
+    ],
+    avoid: "using vague claims without supporting numbers",
+  },
+  {
+    lesson: "Cross-check directional claims against both smart money and price trend",
+    toolPriority: [
+      "getSmartMoney", "getPrice", "getTechnicalIndicator", "getOnChainIndicator",
+      "getNewsFeed", "getSocialMindshare", "getFearGreed", "getDeFiMetrics",
+      "getMarketRanking", "getSocialDetail",
+    ],
+    avoid: "making logical leaps between unrelated events",
+  },
+] as const;
+
+function uniquePush(values: string[], next: string, maxLen: number): string[] {
+  if (!values.includes(next)) values.push(next);
+  if (values.length > maxLen) {
+    values.splice(0, values.length - maxLen);
+  }
+  return values;
+}
+
+function rankTemplates(
+  templates: Array<{ source: string; claim: string }>,
+  playbook: Playbook
+): Array<{ source: string; claim: string }> {
+  const sourcePriority = new Map<string, number>();
+  playbook.toolPriority.forEach((tool, idx) => {
+    const source = TOOL_SOURCE_MAP[tool];
+    if (source && !sourcePriority.has(source)) {
+      sourcePriority.set(source, idx);
+    }
+  });
+
+  return [...templates].sort((a, b) => {
+    const pa = sourcePriority.get(a.source) ?? 999;
+    const pb = sourcePriority.get(b.source) ?? 999;
+    if (pa !== pb) return pa - pb;
+    return a.source.localeCompare(b.source);
+  });
+}
+
+function targetClaimCount(playbook: Playbook): number {
+  const maturity = Math.max(playbook.generation, playbook.lessons.length);
+  return Math.min(6, 3 + Math.min(3, maturity));
+}
+
+function quantifiedReasoning(
+  side: "YES" | "NO",
+  marketQuestion: string,
+  idx: number
+): string {
+  return `Signal ${idx + 1} supports ${side} for "${marketQuestion}" with quantified cross-source evidence.`;
 }
 
 export function mockDebater(
   side: "YES" | "NO",
   market: Market,
-  _playbook: Playbook
+  playbook: Playbook
 ): Argument {
   const templates = side === "YES" ? YES_CLAIM_TEMPLATES : NO_CLAIM_TEMPLATES;
-  const selected = pickRandom(templates, 3 + Math.floor(Math.random() * 3));
+  const selected = rankTemplates(templates, playbook).slice(0, targetClaimCount(playbook));
 
   return {
     side,
-    claims: selected.map((t) => ({
+    claims: selected.map((t, idx) => ({
       claim: t.claim,
       source: t.source,
-      data: { mock: true, market: market.question },
-      reasoning: `This data point supports the ${side} case for "${market.question}"`,
+      data: {
+        mock: true,
+        market: market.question,
+        metricValue: 50 + idx * 7,
+      },
+      reasoning: quantifiedReasoning(side, market.question, idx),
     })),
     summary: `Based on ${selected.length} data points across ${new Set(selected.map((s) => s.source)).size} sources, the evidence supports ${side} for "${market.question}".`,
   };
@@ -95,43 +187,42 @@ export function mockJudge(
   yesArg: Argument,
   noArg: Argument
 ): Vote {
-  // Simulate judge with slight randomness but preference for more claims + source diversity
+  // Deterministic scoring so showcase optimization trends are reproducible.
+  const yesDiversity = new Set(yesArg.claims.map((c) => c.source)).size;
+  const noDiversity = new Set(noArg.claims.map((c) => c.source)).size;
   const yesScore =
     yesArg.claims.length * 0.3 +
-    new Set(yesArg.claims.map((c) => c.source)).size * 0.4 +
-    Math.random() * 0.3;
+    yesDiversity * 0.4;
   const noScore =
     noArg.claims.length * 0.3 +
-    new Set(noArg.claims.map((c) => c.source)).size * 0.4 +
-    Math.random() * 0.3;
+    noDiversity * 0.4;
 
   const winner = yesScore >= noScore ? "YES" as const : "NO" as const;
+  const margin = Math.abs(yesScore - noScore);
+  const confidence = Math.max(0.55, Math.min(0.9, 0.6 + margin * 0.1));
   return {
     winner,
-    confidence: 0.5 + Math.random() * 0.4,
-    reasoning: `${winner} team presented ${winner === "YES" ? yesArg.claims.length : noArg.claims.length} claims from diverse sources`,
+    confidence: Math.round(confidence * 1000) / 1000,
+    reasoning:
+      `${winner} team presented ` +
+      `${winner === "YES" ? yesArg.claims.length : noArg.claims.length} claims ` +
+      `across ${winner === "YES" ? yesDiversity : noDiversity} sources with stronger evidence density`,
   };
 }
 
 export function mockAnalyst(
-  _playbook: Playbook,
+  playbook: Playbook,
   _avgScore: number
 ): { lessons: string[]; toolPriority: string[]; avoidPatterns: string[]; keyMutation: string } {
-  const mutations = [
-    "prioritize on-chain data over social signals",
-    "lead with smart money flows for prediction markets",
-    "cross-reference price momentum with on-chain indicators",
-    "avoid relying solely on news — combine with quantitative data",
-    "weight technical indicators higher for short-term predictions",
-  ];
+  const step = Math.min(playbook.generation, MUTATION_PLAN.length - 1);
+  const plan = MUTATION_PLAN[step];
+  const lessons = uniquePush([...playbook.lessons], plan.lesson, 8);
+  const avoidPatterns = uniquePush([...playbook.avoidPatterns], plan.avoid, 5);
+
   return {
-    lessons: [mutations[Math.floor(Math.random() * mutations.length)]],
-    toolPriority: [
-      "getPrice", "getTechnicalIndicator", "getSmartMoney", "getOnChainIndicator",
-      "getSocialMindshare", "getNewsFeed", "getFearGreed", "getDeFiMetrics",
-      "getMarketRanking", "getSocialDetail",
-    ],
-    avoidPatterns: ["relying on a single data source"],
-    keyMutation: mutations[Math.floor(Math.random() * mutations.length)],
+    lessons,
+    toolPriority: [...plan.toolPriority],
+    avoidPatterns,
+    keyMutation: plan.lesson,
   };
 }
