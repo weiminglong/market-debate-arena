@@ -25,15 +25,6 @@ npx tsx src/index.ts --markets 3 --agent-runtime cursor -v
 # Run curated showcase markets (stable demo path)
 npx tsx src/index.ts --showcase --agent-runtime cursor -v
 
-# Run the 2-minute showcase script (stage-safe fast flow)
-bash scripts/showcase-2min.sh
-
-# Pre-run live generations for optimization evidence
-bash scripts/showcase-2min.sh --live
-
-# Show automated optimization report from latest run
-npx tsx src/index.ts --showcase-report
-
 # Run 5 generations of evolution
 npx tsx src/index.ts --markets 3 --generations 5 -v
 
@@ -44,11 +35,42 @@ npx tsx src/index.ts --condition-id 0x1234...
 npx tsx src/index.ts --history
 ```
 
-The showcase flow emphasizes automated optimization, not only unresolved market
-outcomes. It reports both:
+## Showcase (Recommended Flow)
+
+### 1) Pre-demo live evidence (run before going on stage)
+
+```bash
+# Stronger signal for optimization (more markets, more generations)
+npx tsx src/index.ts --showcase --agent-runtime cursor --markets 3 --generations 4
+
+# Generate latest optimization report from saved results
+npx tsx src/index.ts --showcase-report
+```
+
+### 2) On-stage 2-minute command (safe timing)
+
+```bash
+bash scripts/showcase-2min.sh
+```
+
+This runs:
+- a fast 2-generation showcase flow in mock mode
+- then `--showcase-report` for optimization metrics
+
+### 3) Optional live script mode (slower, pre-stage use)
+
+```bash
+bash scripts/showcase-2min.sh --live
+```
+
+The showcase emphasizes automated optimization, not only unresolved market outcomes.
+It reports both:
 
 - **Align\***: alignment proxy versus live market-implied probability
 - **RQI**: research quality index (claim depth, source diversity, judge confidence)
+
+When markets are unresolved, focus on **RQI trend** (research process quality) and
+use **Align\*** as an online calibration proxy.
 
 ## How It Works
 
