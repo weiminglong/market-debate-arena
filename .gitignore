@@ -2,3 +2,7 @@ node_modules/
 dist/
 results/*.json
 !results/.gitkeep
+strategies/playbook.json
+strategies/playbook-history.jsonl
+.DS_Store
+.env

@@ -1,5 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createSequentialRunner } from "./sequential-runner.js";
 
 const execFileAsync = promisify(execFile);
@@ -8,6 +11,22 @@ interface CursorOptions {
   systemPrompt?: string;
   allowBash?: boolean;
   model?: string;
+}
+
+// SECURITY: with --force the cursor runtime grants unrestricted shell to a
+// model that is fed untrusted market/web content — unlike the claude runtime,
+// whose bash is allowlisted to surf. The scratch workspace below only isolates
+// file writes, not command execution. Prefer the claude runtime for unattended
+// runs; use cursor only with trusted inputs on an isolated machine.
+// The "do not edit files" rule below is prompt text only — so point the agent
+// at a throwaway workspace instead of the repo to keep any file writes away
+// from project state.
+let scratchWorkspace: string | null = null;
+function getScratchWorkspace(): string {
+  const workspace =
+    scratchWorkspace ?? mkdtempSync(join(tmpdir(), "debate-arena-cursor-"));
+  scratchWorkspace = workspace;
+  return workspace;
 }
 
 function mapModelForCursor(model: string | undefined): string | undefined {
@@ -51,7 +70,7 @@ async function runCursorInternal(
     "--print",
     "--trust",
     "--workspace",
-    process.cwd(),
+    getScratchWorkspace(),
   ];
 
   const mappedModel = mapModelForCursor(options.model);

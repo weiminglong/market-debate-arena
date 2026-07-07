@@ -1,6 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { parseSurfOutput } from "./surf-runner.js";
+import {
+  isRetryableFailure,
+  isTransientExecError,
+  parseSurfOutput,
+} from "./surf-runner.js";
 
 describe("parseSurfOutput", () => {
   it("extracts data from envelope JSON", () => {
@@ -48,5 +52,40 @@ describe("parseSurfOutput", () => {
       () => parseSurfOutput("market-price", "{ status: broken }"),
       /invalid JSON output|non-JSON output/
     );
+  });
+});
+
+describe("retry classification", () => {
+  it("classifies Node-enforced timeout kills as transient via structured properties", () => {
+    // execFile timeout rejections carry killed/signal but a generic message
+    // that no text pattern matches — the primary retry case.
+    const err = Object.assign(new Error("Command failed: surf market-price"), {
+      killed: true,
+      signal: "SIGTERM",
+    });
+    assert.strictEqual(isTransientExecError(err), true);
+    assert.strictEqual(isRetryableFailure(err.message), false);
+  });
+
+  it("classifies connection errors as transient", () => {
+    const err = Object.assign(new Error("connect ECONNRESET"), { code: "ECONNRESET" });
+    assert.strictEqual(isTransientExecError(err), true);
+  });
+
+  it("treats output-corruption messages as retryable", () => {
+    assert.ok(isRetryableFailure("surf x returned truncated or invalid JSON output: ..."));
+    assert.ok(isRetryableFailure("surf x returned invalid JSON output: ..."));
+    assert.ok(isRetryableFailure("surf x returned non-JSON output: log noise"));
+    assert.ok(isRetryableFailure("surf x returned empty output"));
+  });
+
+  it("treats rate-limit and server errors as retryable", () => {
+    assert.ok(isRetryableFailure("Surf API error: 429 Too Many Requests"));
+    assert.ok(isRetryableFailure("Surf API error: 503 upstream unavailable"));
+  });
+
+  it("does not retry ordinary failures", () => {
+    assert.strictEqual(isTransientExecError(new Error("boom")), false);
+    assert.strictEqual(isRetryableFailure("Surf API error: invalid symbol"), false);
   });
 });

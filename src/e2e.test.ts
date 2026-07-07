@@ -1,10 +1,20 @@
-import { describe, it } from "node:test";
+import { describe, it, before } from "node:test";
 import assert from "node:assert";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { runGeneration } from "./arena.js";
 import { DEFAULT_PLAYBOOK } from "./types.js";
 
-describe("e2e: single market debate", () => {
-  it("runs a full debate and produces a score", { timeout: 120_000 }, async () => {
+// Live end-to-end test (spawns real agent CLIs) — opt in via LIVE_TESTS=1.
+// Writes to a temp results dir so it never hijacks the showcase report's
+// latest-run selection.
+describe("e2e: single market debate", { skip: !process.env.LIVE_TESTS }, () => {
+  before(() => {
+    process.env.RESULTS_DIR = mkdtempSync(join(tmpdir(), "debate-arena-e2e-"));
+  });
+
+  it("runs a full debate and produces a score", { timeout: 600_000 }, async () => {
     const result = await runGeneration(DEFAULT_PLAYBOOK, {
       marketCount: 1,
       verbose: true,

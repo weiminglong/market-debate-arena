@@ -1,17 +1,21 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import Table from "cli-table3";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { runGeneration } from "./arena.js";
 import { runEvolution } from "./evolution/runner.js";
-import { loadPlaybook } from "./evolution/playbook.js";
+import { ensureMockPlaybookIsolation, loadPlaybook } from "./evolution/playbook.js";
 import { loadAllResults } from "./results.js";
 import { showLatestShowcaseReport } from "./showcase-report.js";
 import { parseAgentRuntime } from "./agent-runner.js";
 import type { GenerationResult } from "./types.js";
 
 const program = new Command();
+
+function fmt3(value: unknown): string {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value.toFixed(3)
+    : "n/a";
+}
 
 program
   .name("crypto-debate-arena")
@@ -40,24 +44,14 @@ program
     }
 
     if (opts.showcase && opts.conditionId) {
-      console.error(
-        chalk.red("Error: --showcase cannot be used together with --condition-id.")
-      );
-      process.exitCode = 1;
-      return;
+      throw new Error("--showcase cannot be used together with --condition-id.");
     }
 
-    let agentRuntime;
-    try {
-      agentRuntime = parseAgentRuntime(
-        opts.agentRuntime || process.env.AGENT_RUNTIME
-      );
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error(chalk.red(`Error: ${msg}`));
-      process.exitCode = 1;
-      return;
-    }
+    const agentRuntime = parseAgentRuntime(
+      opts.agentRuntime || process.env.AGENT_RUNTIME
+    );
+
+    ensureMockPlaybookIsolation(Boolean(opts.mock));
 
     console.log(chalk.bold(`
   ╔══════════════════════════════════════════════════╗
@@ -67,11 +61,11 @@ program
   ╚══════════════════════════════════════════════════╝
 `));
     if (opts.mock) {
-      console.log(chalk.yellow("  Mode: MOCK (simulated data)\n"));
+      console.log(chalk.yellow("  Mode: MOCK (simulated data — results are illustrative, not live)\n"));
     } else {
       console.log(chalk.green("  Mode: LIVE (real-time crypto data via surf)\n"));
     }
-    if (opts.showcase) {
+    if (opts.showcase && !opts.mock) {
       console.log(chalk.magenta("  Showcase mode: curated live market set\n"));
     }
     console.log(chalk.cyan(`  Agent runtime: ${agentRuntime}\n`));
@@ -121,7 +115,7 @@ function printScorecard(result: GenerationResult): void {
       winColor(debate.consensus.winner),
       voteBreakdown,
       debate.market.latestPrice.toFixed(2),
-      debate.score.toFixed(3),
+      fmt3(debate.score),
     ]);
   }
 
@@ -130,7 +124,7 @@ function printScorecard(result: GenerationResult): void {
     "",
     "",
     "",
-    chalk.bold(result.averageScore.toFixed(3)),
+    chalk.bold(fmt3(result.averageScore)),
   ]);
 
   console.log(table.toString());
@@ -138,46 +132,43 @@ function printScorecard(result: GenerationResult): void {
 }
 
 function showHistory(): void {
-  try {
-    const raw = readFileSync(
-      join(process.cwd(), "strategies", "playbook.json"),
-      "utf-8"
-    );
-    const playbook = JSON.parse(raw);
-    console.log(chalk.bold("\nCurrent Playbook:\n"));
-    console.log(`Generation: ${playbook.generation || 0}`);
-    console.log(
-      `Lessons: ${
-        (playbook.lessons || []).length > 0
-          ? (playbook.lessons as string[]).join("\n  - ")
-          : "(none)"
-      }`
-    );
-    console.log(`Tool priority: ${(playbook.toolPriority || []).join(", ")}`);
-    console.log(
-      `Avoid: ${
-        (playbook.avoidPatterns || []).length > 0
-          ? (playbook.avoidPatterns as string[]).join("; ")
-          : "(none)"
-      }`
-    );
-    console.log("");
-  } catch {
-    console.log("No playbook found. Run a generation first.");
-  }
+  const playbook = loadPlaybook();
+  console.log(chalk.bold("\nCurrent Playbook:\n"));
+  console.log(`Generation: ${playbook.generation}`);
+  console.log(
+    `Lessons: ${
+      playbook.lessons.length > 0 ? playbook.lessons.join("\n  - ") : "(none)"
+    }`
+  );
+  console.log(`Tool priority: ${playbook.toolPriority.join(", ")}`);
+  console.log(
+    `Avoid: ${
+      playbook.avoidPatterns.length > 0
+        ? playbook.avoidPatterns.join("; ")
+        : "(none)"
+    }`
+  );
+  console.log("");
 
   const results = loadAllResults();
   if (results.length > 0) {
     console.log(chalk.bold("Generation History:\n"));
-    console.log(`${"Gen".padEnd(6)}${"Score".padEnd(10)}Markets`);
+    console.log(`${"Gen".padEnd(6)}${"Score".padEnd(10)}${"Mode".padEnd(6)}Markets`);
     console.log("-".repeat(40));
     for (const r of results) {
+      const mode = r.metadata?.mock ? "mock" : "live";
       console.log(
-        `${String(r.generation).padEnd(6)}${r.averageScore.toFixed(3).padEnd(10)}${r.debates.length}`
+        `${String(r.generation).padEnd(6)}${fmt3(r.averageScore).padEnd(10)}${mode.padEnd(6)}${Array.isArray(r.debates) ? r.debates.length : 0}`
       );
     }
     console.log("");
   }
 }
 
-program.parse();
+try {
+  await program.parseAsync(process.argv);
+} catch (e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e);
+  console.error(chalk.red(`\nError: ${msg}`));
+  process.exitCode = 1;
+}

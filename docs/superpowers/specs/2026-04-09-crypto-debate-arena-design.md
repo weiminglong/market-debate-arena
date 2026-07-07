@@ -1,5 +1,10 @@
 # Crypto Debate Arena — Design Spec
 
+> **Historical document.** This spec describes the original Anthropic-SDK
+> tool-use architecture, which was later replaced by CLI agent runtimes
+> (`claude` / `cursor-agent` subprocesses). See README.md for the current
+> design.
+
 **Date:** 2026-04-09
 **Hackathon theme:** Automated research — harnesses, tools, benchmarks, challenges, or demonstrations
 **Stack:** TypeScript, Anthropic SDK (tool use), Surf CLI, Node.js

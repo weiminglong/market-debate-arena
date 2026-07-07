@@ -33,6 +33,7 @@ export interface Market {
   latestPrice: number;
   category: string;
   marketLink: string;
+  status?: string;
 }
 
 export interface DebateResult {
@@ -66,20 +67,35 @@ export interface Playbook {
   avoidPatterns: string[];
 }
 
+export interface EvolutionHistoryEntry {
+  generation: number;
+  averageScore: number;
+  improvement: string;
+  keyMutation: string;
+  reverted: boolean;
+}
+
+// Canonical research tool set: playbook tool names → the surf CLI command that
+// implements them. Used to translate toolPriority into actionable commands in
+// prompts and to validate analyst output against known tools.
+export const TOOL_SURF_COMMANDS: Record<string, string> = {
+  getPrice: "surf market-price",
+  getTechnicalIndicator: "surf market-price-indicator",
+  getSmartMoney: "surf polymarket-smart-money",
+  getOnChainIndicator: "surf market-onchain-indicator",
+  getSocialMindshare: "surf social-mindshare",
+  getNewsFeed: "surf news-feed",
+  getFearGreed: "surf market-fear-greed",
+  getDeFiMetrics: "surf project-defi-metrics",
+  getMarketRanking: "surf market-ranking",
+  getSocialDetail: "surf social-detail",
+};
+
+export const KNOWN_TOOLS = Object.keys(TOOL_SURF_COMMANDS);
+
 export const DEFAULT_PLAYBOOK: Playbook = {
   generation: 0,
   lessons: [],
-  toolPriority: [
-    "getPrice",
-    "getTechnicalIndicator",
-    "getSmartMoney",
-    "getOnChainIndicator",
-    "getSocialMindshare",
-    "getNewsFeed",
-    "getFearGreed",
-    "getDeFiMetrics",
-    "getMarketRanking",
-    "getSocialDetail",
-  ],
+  toolPriority: [...KNOWN_TOOLS],
   avoidPatterns: [],
 };

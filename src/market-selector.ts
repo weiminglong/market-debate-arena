@@ -5,6 +5,7 @@ import type { Market } from "./types.js";
 interface FetchOptions {
   count?: number;
   conditionId?: string;
+  category?: string;
 }
 
 interface RawMarket {
@@ -34,6 +35,7 @@ export async function fetchMarkets(options: FetchOptions): Promise<Market[]> {
     "sort-by": "volume_7d",
     order: "desc",
     limit: Math.min(options.count || 5, 20),
+    ...(options.category ? { category: options.category } : {}),
   })) as RawMarket[];
 
   const filtered = data.filter((m) => {
@@ -52,5 +54,6 @@ function toMarket(raw: RawMarket): Market {
     latestPrice: raw.latest_price ?? 0.5,
     category: raw.category || "Unknown",
     marketLink: raw.market_link || "",
+    status: raw.status,
   };
 }

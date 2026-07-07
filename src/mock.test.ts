@@ -43,8 +43,8 @@ describe("mock showcase behavior", () => {
 
     const improved = mockDebater("YES", MARKET, evolvedPlaybook);
 
-    assert.ok(improved.claims.length >= base.claims.length);
-    assert.ok(sourceDiversity(improved) >= sourceDiversity(base));
+    assert.ok(improved.claims.length > base.claims.length);
+    assert.ok(sourceDiversity(improved) > sourceDiversity(base));
   });
 
   it("applies deterministic analyst mutation sequence", () => {
@@ -81,13 +81,13 @@ describe("mock showcase behavior", () => {
       claims: [{ claim: "C", source: "market-price", data: {}, reasoning: "C" }],
     };
 
-    const v1 = mockJudge("Q", yesArg, noArg);
-    const v2 = mockJudge("Q", yesArg, noArg);
+    const v1 = mockJudge(MARKET, yesArg, noArg);
+    const v2 = mockJudge(MARKET, yesArg, noArg);
 
     assert.deepStrictEqual(v1, v2);
   });
 
-  it("uses playbook maturity to break ties deterministically", () => {
+  it("breaks ties from the market price, deterministically", () => {
     const tiedYes: Argument = {
       side: "YES",
       summary: "yes",
@@ -105,19 +105,10 @@ describe("mock showcase behavior", () => {
       ],
     };
 
-    const evenLessons: Playbook = {
-      ...DEFAULT_PLAYBOOK,
-      lessons: ["l1", "l2"],
-    };
-    const oddLessons: Playbook = {
-      ...DEFAULT_PLAYBOOK,
-      lessons: ["l1", "l2", "l3"],
-    };
+    const bullishMarket: Market = { ...MARKET, latestPrice: 0.62 };
+    const bearishMarket: Market = { ...MARKET, latestPrice: 0.35 };
 
-    const evenVote = mockJudge("Q", tiedYes, tiedNo, evenLessons);
-    const oddVote = mockJudge("Q", tiedYes, tiedNo, oddLessons);
-
-    assert.strictEqual(evenVote.winner, "NO");
-    assert.strictEqual(oddVote.winner, "YES");
+    assert.strictEqual(mockJudge(bullishMarket, tiedYes, tiedNo).winner, "YES");
+    assert.strictEqual(mockJudge(bearishMarket, tiedYes, tiedNo).winner, "NO");
   });
 });

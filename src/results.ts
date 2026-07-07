@@ -1,9 +1,17 @@
 // src/results.ts
-import { writeFileSync, readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
-import type { GenerationResult } from "./types.js";
+import { writeFileSync, readFileSync, readdirSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { Claim, GenerationResult } from "./types.js";
 
-const RESULTS_DIR = join(process.cwd(), "results");
+// Anchor to the repo root (not process.cwd()) so runs from other directories
+// read and write the same results. RESULTS_DIR env overrides for tests.
+function resultsDir(): string {
+  return (
+    process.env.RESULTS_DIR ||
+    join(dirname(fileURLToPath(import.meta.url)), "..", "results")
+  );
+}
 
 interface StoredResultFile {
   filename: string;
@@ -16,10 +24,26 @@ function parseTimestampKey(filename: string): string {
   return match ? match[1] : filename;
 }
 
+function stripClaimData(claims: Claim[]): Claim[] {
+  return claims.map((c) => {
+    const data =
+      c.data && typeof c.data === "object" && !Array.isArray(c.data)
+        ? c.data
+        : {};
+    return {
+      ...c,
+      data: Object.keys(data).length > 5 ? { _truncated: true } : data,
+    };
+  });
+}
+
 export function saveGenerationResult(result: GenerationResult): string {
+  const dir = resultsDir();
+  mkdirSync(dir, { recursive: true });
+
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const filename = `gen-${result.generation}-${timestamp}.json`;
-  const filepath = join(RESULTS_DIR, filename);
+  const filepath = join(dir, filename);
 
   // Strip raw data from claims to keep files manageable
   const stripped = {
@@ -28,17 +52,11 @@ export function saveGenerationResult(result: GenerationResult): string {
       ...d,
       yesArgument: {
         ...d.yesArgument,
-        claims: d.yesArgument.claims.map((c) => ({
-          ...c,
-          data: Object.keys(c.data).length > 5 ? { _truncated: true } : c.data,
-        })),
+        claims: stripClaimData(d.yesArgument.claims),
       },
       noArgument: {
         ...d.noArgument,
-        claims: d.noArgument.claims.map((c) => ({
-          ...c,
-          data: Object.keys(c.data).length > 5 ? { _truncated: true } : c.data,
-        })),
+        claims: stripClaimData(d.noArgument.claims),
       },
     })),
   };
@@ -48,20 +66,39 @@ export function saveGenerationResult(result: GenerationResult): string {
 }
 
 export function loadAllResults(): GenerationResult[] {
+  let files: string[];
   try {
-    const files = readdirSync(RESULTS_DIR).filter((f) => f.endsWith(".json"));
-    const loaded: StoredResultFile[] = files.map((filename) => {
-      const raw = readFileSync(join(RESULTS_DIR, filename), "utf-8");
-      return {
-        filename,
-        timestampKey: parseTimestampKey(filename),
-        result: JSON.parse(raw) as GenerationResult,
-      };
-    });
-
-    loaded.sort((a, b) => a.timestampKey.localeCompare(b.timestampKey));
-    return loaded.map((entry) => entry.result);
+    files = readdirSync(resultsDir()).filter((f) => f.endsWith(".json"));
   } catch {
     return [];
   }
+
+  // One corrupt file must not erase the whole history — skip it with a warning.
+  const loaded: StoredResultFile[] = [];
+  for (const filename of files) {
+    try {
+      const raw = readFileSync(join(resultsDir(), filename), "utf-8");
+      const parsed: unknown = JSON.parse(raw);
+      if (
+        !parsed ||
+        typeof parsed !== "object" ||
+        Array.isArray(parsed) ||
+        !Array.isArray((parsed as GenerationResult).debates)
+      ) {
+        console.warn(`Warning: skipping malformed result file ${filename}`);
+        continue;
+      }
+      loaded.push({
+        filename,
+        timestampKey: parseTimestampKey(filename),
+        result: parsed as GenerationResult,
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn(`Warning: skipping unreadable result file ${filename}: ${msg}`);
+    }
+  }
+
+  loaded.sort((a, b) => a.timestampKey.localeCompare(b.timestampKey));
+  return loaded.map((entry) => entry.result);
 }
