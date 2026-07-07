@@ -25,11 +25,16 @@ export async function runClaude(
   }
 
   if (options.allowBash) {
-    args.push("--allowedTools", "Bash");
+    // Debaters only need the surf CLI; an unscoped Bash grant would let
+    // prompt-injected market/web content run arbitrary commands unattended.
+    // --permission-mode default enforces the allowlist even when the ambient
+    // user config defaults to bypassPermissions.
+    args.push("--allowedTools", "Bash(surf:*)", "--permission-mode", "default");
   }
 
   const { stdout } = await execFileAsync("claude", args, {
-    timeout: 120_000,
+    // Research runs (6-8 surf calls + reasoning) routinely exceed 120s.
+    timeout: options.allowBash ? 240_000 : 120_000,
     maxBuffer: 1024 * 1024 * 10,
   });
 

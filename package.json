@@ -1,14 +1,16 @@
 {
   "name": "market-debate-arena",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Adversarial AI research benchmark on prediction markets: agents debate crypto questions with live data, judged by Byzantine consensus, evolving strategies across generations",
   "directories": {
     "doc": "docs"
   },
   "scripts": {
     "start": "tsx src/index.ts",
-    "test": "tsx --test src/**/*.test.ts",
+    "test": "tsx --test 'src/**/*.test.ts'",
+    "test:live": "LIVE_TESTS=1 tsx --test src/tools/surf-runner.test.ts src/market-selector.test.ts",
+    "test:e2e": "LIVE_TESTS=1 tsx --test src/e2e.test.ts",
+    "typecheck": "tsc --noEmit",
     "showcase:2min": "bash scripts/showcase-2min.sh",
     "showcase:live": "bash scripts/showcase-2min.sh --live",
     "showcase:report": "tsx src/index.ts --showcase-report"
@@ -17,8 +19,14 @@
     "type": "git",
     "url": "git+https://github.com/weiminglong/market-debate-arena.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "prediction-markets",
+    "ai-agents",
+    "debate",
+    "crypto",
+    "benchmark"
+  ],
+  "author": "Weiming Long",
   "license": "ISC",
   "type": "module",
   "bugs": {
@@ -26,7 +34,6 @@
   },
   "homepage": "https://github.com/weiminglong/market-debate-arena#readme",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.87.0",
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",
     "commander": "^14.0.3"

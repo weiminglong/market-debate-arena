@@ -3,7 +3,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 import { fetchMarkets } from "./market-selector.js";
 
-describe("fetchMarkets", () => {
+// Live network test (spends surf API credits) — opt in via LIVE_TESTS=1.
+describe("fetchMarkets", { skip: !process.env.LIVE_TESTS }, () => {
   it("fetches active prediction markets", async () => {
     const markets = await fetchMarkets({ count: 3 });
     assert.ok(Array.isArray(markets), "should return array");

@@ -183,10 +183,10 @@ export function mockDebater(
 }
 
 export function mockJudge(
-  _question: string,
+  market: Market,
   yesArg: Argument,
   noArg: Argument,
-  playbook?: Playbook
+  _playbook?: Playbook
 ): Vote {
   // Deterministic scoring so showcase optimization trends are reproducible.
   const yesDiversity = new Set(yesArg.claims.map((c) => c.source)).size;
@@ -200,9 +200,9 @@ export function mockJudge(
 
   let winner: "YES" | "NO";
   if (yesScore === noScore) {
-    // In mock showcase mode, use playbook maturity to break ties so later generations
-    // produce visibly different scorecards while remaining deterministic.
-    winner = playbook && playbook.lessons.length % 2 === 0 ? "NO" : "YES";
+    // Tie-break from the simulated market's own price — deterministic and
+    // consistent with what a real judging panel would plausibly conclude.
+    winner = market.latestPrice >= 0.5 ? "YES" : "NO";
   } else {
     winner = yesScore > noScore ? "YES" : "NO";
   }

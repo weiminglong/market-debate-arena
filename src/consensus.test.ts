@@ -45,4 +45,32 @@ describe("computeConsensus", () => {
     const result = computeConsensus(votes);
     assert.ok(Math.abs(result.averageConfidence - 0.6) < 0.01);
   });
+
+  it("breaks a tied panel by total confidence, not a fixed side", () => {
+    const noWins: Vote[] = [
+      { winner: "YES", confidence: 0.5, reasoning: "a" },
+      { winner: "NO", confidence: 0.9, reasoning: "b" },
+    ];
+    assert.strictEqual(computeConsensus(noWins).winner, "NO");
+
+    const yesWins: Vote[] = [
+      { winner: "YES", confidence: 0.9, reasoning: "a" },
+      { winner: "NO", confidence: 0.5, reasoning: "b" },
+    ];
+    assert.strictEqual(computeConsensus(yesWins).winner, "YES");
+  });
+
+  it("works with a 2-judge panel after one abstention", () => {
+    const votes: Vote[] = [
+      { winner: "NO", confidence: 0.8, reasoning: "a" },
+      { winner: "NO", confidence: 0.7, reasoning: "b" },
+    ];
+    const result = computeConsensus(votes);
+    assert.strictEqual(result.winner, "NO");
+    assert.strictEqual(result.unanimous, true);
+  });
+
+  it("throws on zero votes instead of returning a fabricated verdict", () => {
+    assert.throws(() => computeConsensus([]), /zero valid votes/);
+  });
 });

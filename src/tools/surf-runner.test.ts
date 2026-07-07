@@ -2,7 +2,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 import { runSurf } from "./surf-runner.js";
 
-describe("runSurf", () => {
+// Live network tests (spend surf API credits) — opt in via LIVE_TESTS=1.
+describe("runSurf", { skip: !process.env.LIVE_TESTS }, () => {
   it("fetches market fear-greed data", async () => {
     const result = await runSurf("market-fear-greed", {});
     assert.ok(Array.isArray(result), "result should be an array");
