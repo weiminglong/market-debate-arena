@@ -1,20 +1,15 @@
 import { runClaude } from "./claude-runner.js";
 import { runCursor } from "./cursor-runner.js";
+import { isTransientExecError } from "./exec-utils.js";
+import type { ExecError } from "./exec-utils.js";
 
 export const SUPPORTED_AGENT_RUNTIMES = ["claude", "cursor"] as const;
 export type AgentRuntime = (typeof SUPPORTED_AGENT_RUNTIMES)[number];
 
-interface AgentRunOptions {
+export interface AgentRunOptions {
   systemPrompt?: string;
   allowBash?: boolean;
   model?: string;
-}
-
-interface ExecError extends Error {
-  code?: string | number;
-  killed?: boolean;
-  signal?: string | null;
-  stderr?: string;
 }
 
 export function parseAgentRuntime(runtime: string | undefined): AgentRuntime {
@@ -28,13 +23,6 @@ export function parseAgentRuntime(runtime: string | undefined): AgentRuntime {
   throw new Error(
     `Unsupported agent runtime "${runtime}". Supported values: ${SUPPORTED_AGENT_RUNTIMES.join(", ")}`
   );
-}
-
-export function isTransientExecFailure(e: unknown): boolean {
-  const err = e as ExecError;
-  if (err?.killed === true || err?.signal === "SIGTERM") return true;
-  const code = String(err?.code ?? "");
-  return code === "ETIMEDOUT" || code === "ECONNRESET";
 }
 
 // execFile errors bury stderr under "Command failed: claude -p <kilobytes of
@@ -72,7 +60,7 @@ export async function runAgent(
       return await exec(prompt, options);
     } catch (e: unknown) {
       lastError = e;
-      if (isTransientExecFailure(e) && attempt === 0) {
+      if (isTransientExecError(e) && attempt === 0) {
         continue;
       }
       break;

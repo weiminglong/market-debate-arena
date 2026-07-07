@@ -1,9 +1,14 @@
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { saveGenerationResult, loadAllResults } from "./results.js";
+import {
+  saveGenerationResult,
+  loadAllResults,
+  summarizeRuns,
+  pruneResults,
+} from "./results.js";
 import type { GenerationResult } from "./types.js";
 
 let tempDir: string;
@@ -94,5 +99,72 @@ describe("results persistence", () => {
   it("returns empty array when directory is missing", () => {
     process.env.RESULTS_DIR = join(tempDir, "does-not-exist");
     assert.deepStrictEqual(loadAllResults(), []);
+  });
+});
+
+// Writes with an explicit timestamp so ordering is deterministic (real saves
+// in the same millisecond would otherwise tie on the timestamp key).
+function writeRunFile(
+  generation: number,
+  timestamp: string,
+  runId: string,
+  mock: boolean
+): void {
+  const result = makeResult(generation);
+  result.metadata = {
+    runId,
+    createdAt: new Date().toISOString(),
+    runtime: "claude",
+    mock,
+    showcase: false,
+    totalDurationMs: 1000,
+  };
+  writeFileSync(
+    join(tempDir, `gen-${generation}-${timestamp}-${runId}.json`),
+    JSON.stringify(result)
+  );
+}
+
+describe("run management", () => {
+  it("groups results by runId, ordered by last activity", () => {
+    writeRunFile(1, "2026-01-01T00-00-01-000Z", "run-a", true);
+    writeRunFile(2, "2026-01-01T00-00-02-000Z", "run-a", true);
+    writeRunFile(1, "2026-01-01T00-00-03-000Z", "run-b", false);
+    // A legacy file without run metadata groups under (untagged).
+    const legacy = makeResult(1);
+    delete legacy.metadata;
+    writeFileSync(join(tempDir, "gen-1-0000-legacy.json"), JSON.stringify(legacy));
+
+    const runs = summarizeRuns();
+    assert.deepStrictEqual(
+      runs.map((r) => r.runId),
+      ["(untagged)", "run-a", "run-b"]
+    );
+    const runA = runs.find((r) => r.runId === "run-a")!;
+    assert.strictEqual(runA.generations, 2);
+    assert.strictEqual(runA.files.length, 2);
+    assert.strictEqual(runA.totalDurationMs, 2000);
+  });
+
+  it("prunes only the oldest runs and keeps the rest intact", () => {
+    writeRunFile(1, "2026-01-01T00-00-01-000Z", "run-old", true);
+    writeRunFile(1, "2026-01-02T00-00-01-000Z", "run-mid", true);
+    writeRunFile(1, "2026-01-03T00-00-01-000Z", "run-new", true);
+
+    const deleted = pruneResults(2);
+    assert.strictEqual(deleted.length, 1);
+    assert.ok(deleted[0].includes("run-old"));
+    for (const filename of deleted) {
+      assert.ok(!existsSync(join(tempDir, filename)));
+    }
+
+    const remaining = summarizeRuns().map((r) => r.runId);
+    assert.deepStrictEqual(remaining, ["run-mid", "run-new"]);
+  });
+
+  it("prune is a no-op when there are fewer runs than keep", () => {
+    writeRunFile(1, "2026-01-01T00-00-01-000Z", "run-a", true);
+    assert.deepStrictEqual(pruneResults(5), []);
+    assert.strictEqual(loadAllResults().length, 1);
   });
 });

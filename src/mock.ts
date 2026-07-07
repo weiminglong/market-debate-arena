@@ -1,4 +1,4 @@
-import type { Argument, Market, Playbook, Vote } from "./types.js";
+import { TOOL_CATALOG, type Argument, type Market, type Playbook, type Vote } from "./types.js";
 
 export const MOCK_MARKETS: Market[] = [
   {
@@ -65,18 +65,14 @@ const NO_CLAIM_TEMPLATES = [
   { source: "market-ranking", claim: "Token losing market cap rank, being overtaken by competitors" },
 ];
 
-const TOOL_SOURCE_MAP: Record<string, string> = {
-  getPrice: "market-price",
-  getTechnicalIndicator: "market-price-indicator",
-  getSmartMoney: "polymarket-smart-money",
-  getOnChainIndicator: "market-onchain-indicator",
-  getSocialMindshare: "social-mindshare",
-  getNewsFeed: "news-feed",
-  getFearGreed: "market-fear-greed",
-  getDeFiMetrics: "project-defi-metrics",
-  getMarketRanking: "market-ranking",
-  getSocialDetail: "social-detail",
-};
+// Derived from the canonical tool catalog so mock claim sources can't drift
+// from the real surf commands (which would corrupt source-diversity metrics).
+const TOOL_SOURCE_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(TOOL_CATALOG).map(([name, entry]) => [
+    name,
+    entry.command.replace(/^surf /, ""),
+  ])
+);
 
 const MUTATION_PLAN = [
   {

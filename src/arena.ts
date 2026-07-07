@@ -3,28 +3,27 @@ import chalk from "chalk";
 import { fetchMarkets } from "./market-selector.js";
 import { runDebater } from "./debater.js";
 import { runJudge } from "./judge.js";
-import { computeConsensus, MIN_VALID_VOTES } from "./consensus.js";
+import { computeConsensus } from "./consensus.js";
 import { scoreDebate } from "./scorer.js";
 import { MOCK_MARKETS, mockDebater, mockJudge } from "./mock.js";
 import { getShowcaseConditionIds } from "./showcase.js";
+import { JUDGING, PRICE_BAND } from "./config.js";
+import { startHeartbeat, formatDuration } from "./progress.js";
+import { newRunId } from "./util.js";
+import { SurfCreditsExhaustedError } from "./tools/surf-runner.js";
 import type { DebateResult, GenerationResult, Market, Playbook, Vote } from "./types.js";
 import type { AgentRuntime } from "./agent-runner.js";
 import { saveGenerationResult } from "./results.js";
 
-const NUM_JUDGES = 3;
-
-// Markets outside this price band (or no longer active) are effectively
+// Markets outside the price band (or no longer active) are effectively
 // settled: any verdict against a 0.001 market scores ~0.999 and corrupts the
 // alignment signal.
-const MIN_DEBATABLE_PRICE = 0.1;
-const MAX_DEBATABLE_PRICE = 0.9;
-
 function isDebatable(market: Market): boolean {
   const statusOk = !market.status || market.status.toLowerCase() === "active";
   return (
     statusOk &&
-    market.latestPrice >= MIN_DEBATABLE_PRICE &&
-    market.latestPrice <= MAX_DEBATABLE_PRICE
+    market.latestPrice >= PRICE_BAND.min &&
+    market.latestPrice <= PRICE_BAND.max
   );
 }
 
@@ -35,67 +34,78 @@ async function runSingleDebate(
   mock: boolean = false,
   agentRuntime: AgentRuntime = "claude"
 ): Promise<DebateResult> {
-  if (verbose) {
-    console.log(chalk.cyan(`\n  Debating: "${market.question}"`));
-    console.log(chalk.gray(`  Market price: ${market.latestPrice} | Platform: ${market.platform}`));
-  }
+  const started = Date.now();
 
   // Run YES and NO debaters in parallel
-  if (verbose) console.log(chalk.yellow(mock ? "  Running mock debaters..." : "  Starting debaters..."));
-
-  const [yesArgument, noArgument] = mock
-    ? [mockDebater("YES", market, playbook), mockDebater("NO", market, playbook)]
-    : await Promise.all([
-        runDebater("YES", market, playbook, verbose, agentRuntime),
-        runDebater("NO", market, playbook, verbose, agentRuntime),
-      ]);
+  const stopDebaterHeartbeat = mock
+    ? () => {}
+    : startHeartbeat("debaters researching");
+  let yesArgument;
+  let noArgument;
+  try {
+    [yesArgument, noArgument] = mock
+      ? [mockDebater("YES", market, playbook), mockDebater("NO", market, playbook)]
+      : await Promise.all([
+          runDebater("YES", market, playbook, verbose, agentRuntime),
+          runDebater("NO", market, playbook, verbose, agentRuntime),
+        ]);
+  } finally {
+    stopDebaterHeartbeat();
+  }
 
   if (verbose) {
     console.log(chalk.green(`  YES claims: ${yesArgument.claims.length}`));
     console.log(chalk.red(`  NO claims: ${noArgument.claims.length}`));
-    console.log(chalk.yellow("  Judges deliberating..."));
   }
 
   // Run judges in parallel; a judge that fails (exec error or unparseable
   // vote) abstains rather than sinking a debate that still has a valid panel.
-  const rawVotes = mock
-    ? Array.from({ length: NUM_JUDGES }, () =>
-        mockJudge(market, yesArgument, noArgument, playbook)
-      )
-    : await Promise.all(
-        Array.from({ length: NUM_JUDGES }, () =>
-          runJudge(market.question, yesArgument, noArgument, agentRuntime).catch(
-            (e: unknown) => {
-              const msg = e instanceof Error ? e.message : String(e);
-              console.log(chalk.yellow(`  Judge failed (abstaining): ${msg}`));
-              return null;
-            }
-          )
+  const stopJudgeHeartbeat = mock ? () => {} : startHeartbeat("judges deliberating");
+  let rawVotes: (Vote | null)[];
+  try {
+    rawVotes = mock
+      ? Array.from({ length: JUDGING.judges }, () =>
+          mockJudge(market, yesArgument, noArgument, playbook)
         )
-      );
+      : await Promise.all(
+          Array.from({ length: JUDGING.judges }, () =>
+            runJudge(market.question, yesArgument, noArgument, agentRuntime).catch(
+              (e: unknown) => {
+                const msg = e instanceof Error ? e.message : String(e);
+                console.log(chalk.yellow(`  Judge failed (abstaining): ${msg}`));
+                return null;
+              }
+            )
+          )
+        );
+  } finally {
+    stopJudgeHeartbeat();
+  }
 
   const votes = rawVotes.filter((v): v is Vote => v !== null);
-  if (votes.length < MIN_VALID_VOTES) {
+  if (votes.length < JUDGING.minValidVotes) {
     throw new Error(
-      `only ${votes.length}/${NUM_JUDGES} judges returned a valid vote`
+      `only ${votes.length}/${JUDGING.judges} judges returned a valid vote`
     );
   }
-  if (votes.length < NUM_JUDGES && verbose) {
-    console.log(chalk.yellow(`  ${NUM_JUDGES - votes.length} judge(s) abstained (unparseable vote)`));
+  if (votes.length < JUDGING.judges) {
+    console.log(
+      chalk.yellow(`  ${JUDGING.judges - votes.length} judge(s) abstained (unparseable vote)`)
+    );
   }
 
   const consensus = computeConsensus(votes);
   const score = scoreDebate(consensus.winner, market.latestPrice);
+  const durationMs = Date.now() - started;
 
-  if (verbose) {
-    const winColor = consensus.winner === "YES" ? chalk.green : chalk.red;
-    console.log(
-      `  Verdict: ${winColor(consensus.winner)} (${consensus.unanimous ? "unanimous" : "majority"}, confidence: ${consensus.averageConfidence})`
-    );
-    console.log(`  Score: ${chalk.bold(String(score))}`);
-  }
+  const winColor = consensus.winner === "YES" ? chalk.green : chalk.red;
+  const voteBreakdown = `${votes.filter((v) => v.winner === "YES").length}-${votes.filter((v) => v.winner === "NO").length}`;
+  console.log(
+    `  Verdict: ${winColor(consensus.winner)} (${voteBreakdown}${consensus.unanimous ? " unanimous" : ""}, ` +
+      `confidence ${consensus.averageConfidence}) — Align* ${score} — ${formatDuration(durationMs)}`
+  );
 
-  return { market, yesArgument, noArgument, consensus, score };
+  return { market, yesArgument, noArgument, consensus, score, durationMs };
 }
 
 export interface ArenaOptions {
@@ -112,7 +122,7 @@ export interface ArenaOptions {
 
 // Curated showcase IDs can expire between rehearsal and stage time, so each is
 // fetched independently (one failure must not sink the run), validated, and
-// topped up from live discovery when too few survive.
+// topped up from live crypto discovery when too few survive.
 async function fetchShowcaseMarkets(count: number, verbose: boolean): Promise<Market[]> {
   const curatedIds = getShowcaseConditionIds(count);
   const settled = await Promise.allSettled(
@@ -126,11 +136,11 @@ async function fetchShowcaseMarkets(count: number, verbose: boolean): Promise<Ma
         if (market.conditionId) deduped.set(market.conditionId, market);
       }
     } else {
-      const msg =
-        result.reason instanceof Error ? result.reason.message : String(result.reason);
       // Credit exhaustion must reach runGeneration's mock fallback — it is
       // not a per-market condition that warnings-and-continuing can fix.
-      if (msg.includes("credits exhausted")) throw result.reason;
+      if (result.reason instanceof SurfCreditsExhaustedError) throw result.reason;
+      const msg =
+        result.reason instanceof Error ? result.reason.message : String(result.reason);
       console.log(
         chalk.yellow(`  Warning: curated market ${curatedIds[i].slice(0, 18)}... fetch failed: ${msg}`)
       );
@@ -145,7 +155,7 @@ async function fetchShowcaseMarkets(count: number, verbose: boolean): Promise<Ma
       console.log(
         chalk.yellow(
           `  Warning: skipping curated market "${market.question.slice(0, 50)}" — ` +
-            `${market.status && market.status.toLowerCase() !== "active" ? `status ${market.status}` : `price ${market.latestPrice} outside ${MIN_DEBATABLE_PRICE}-${MAX_DEBATABLE_PRICE}`}`
+            `${market.status && market.status.toLowerCase() !== "active" ? `status ${market.status}` : `price ${market.latestPrice} outside ${PRICE_BAND.min}-${PRICE_BAND.max}`}`
         )
       );
     }
@@ -167,8 +177,8 @@ async function fetchShowcaseMarkets(count: number, verbose: boolean): Promise<Ma
         }
       }
     } catch (e: unknown) {
+      if (e instanceof SurfCreditsExhaustedError) throw e;
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes("credits exhausted")) throw e;
       console.log(chalk.yellow(`  Warning: discovery top-up failed: ${msg}`));
     }
   }
@@ -182,8 +192,8 @@ export async function runGeneration(
 ): Promise<GenerationResult> {
   const generation = playbook.generation + 1;
   const runtime = options.agentRuntime || "claude";
-  const runId =
-    options.runId || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const runId = options.runId || newRunId();
+  const generationStarted = Date.now();
   // Never mutate the shared options object: a credit-exhaustion fallback in
   // one generation must not silently convert the rest of the run to mock.
   let useMock = Boolean(options.mock);
@@ -206,8 +216,7 @@ export async function runGeneration(
         });
       }
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes("credits exhausted")) {
+      if (e instanceof SurfCreditsExhaustedError) {
         console.log(chalk.bgYellow.black("\n  ⚠ SURF CREDITS EXHAUSTED — this generation runs on SIMULATED (mock) data  "));
         console.log(chalk.gray(`  To use live data, run: surf auth --api-key <key>\n`));
         markets = MOCK_MARKETS.slice(0, options.marketCount);
@@ -230,7 +239,12 @@ export async function runGeneration(
   // is skipped instead of discarding the whole generation.
   const debates: DebateResult[] = [];
   const failures: string[] = [];
-  for (const market of markets) {
+  for (let i = 0; i < markets.length; i++) {
+    const market = markets[i];
+    console.log(
+      chalk.cyan(`  Debate ${i + 1}/${markets.length}: "${market.question}"`) +
+        chalk.gray(` (price ${market.latestPrice}, ${market.platform})`)
+    );
     try {
       const result = await runSingleDebate(
         market,
@@ -271,6 +285,7 @@ export async function runGeneration(
       runtime,
       mock: useMock,
       showcase: Boolean(options.showcase),
+      totalDurationMs: Date.now() - generationStarted,
     },
   };
   const filepath = saveGenerationResult(genResult);

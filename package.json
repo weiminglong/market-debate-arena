@@ -7,13 +7,17 @@
   },
   "scripts": {
     "start": "tsx src/index.ts",
+    "arena": "tsx src/index.ts",
+    "demo": "bash scripts/showcase-2min.sh",
     "test": "tsx --test 'src/**/*.test.ts'",
     "test:live": "LIVE_TESTS=1 tsx --test src/tools/surf-runner.test.ts src/market-selector.test.ts",
     "test:e2e": "LIVE_TESTS=1 tsx --test src/e2e.test.ts",
     "typecheck": "tsc --noEmit",
-    "showcase:2min": "bash scripts/showcase-2min.sh",
     "showcase:live": "bash scripts/showcase-2min.sh --live",
-    "showcase:report": "tsx src/index.ts --showcase-report"
+    "showcase:report": "tsx src/index.ts report"
+  },
+  "engines": {
+    "node": ">=22"
   },
   "repository": {
     "type": "git",

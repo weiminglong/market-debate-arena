@@ -2,18 +2,23 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { setTimeout as sleep } from "node:timers/promises";
 import { extractFirstJSONValue } from "../json-extract.js";
+import { SURF } from "../config.js";
+import { isTransientExecError } from "../exec-utils.js";
+import type { ExecError } from "../exec-utils.js";
 
 const execFileAsync = promisify(execFile);
-const SURF_TIMEOUT_MS = [45_000, 90_000, 90_000] as const;
-const SURF_MAX_BUFFER = 1024 * 1024 * 20;
-const RETRY_DELAY_MS = 1_500;
 
-interface ExecError extends Error {
-  code?: string | number;
-  killed?: boolean;
-  signal?: string | null;
-  stdout?: string;
-  stderr?: string;
+export { isTransientExecError };
+
+// The demo's mock fallback keys off this error — a typed class instead of
+// message-substring matching, so rewording the message can't break it.
+export class SurfCreditsExhaustedError extends Error {
+  constructor() {
+    super(
+      "Surf API credits exhausted. Get an API key at https://agents.asksurf.ai and run: surf auth --api-key <key>"
+    );
+    this.name = "SurfCreditsExhaustedError";
+  }
 }
 
 export function parseSurfOutput(command: string, stdout: string): unknown {
@@ -41,9 +46,7 @@ export function parseSurfOutput(command: string, stdout: string): unknown {
   if (parsed && typeof parsed === "object" && "error" in parsed) {
     const errObj = (parsed as { error?: { code?: string; message?: string } }).error;
     if (errObj?.code === "INSUFFICIENT_CREDIT") {
-      throw new Error(
-        `Surf API credits exhausted. Get an API key at https://agents.asksurf.ai and run: surf auth --api-key <key>`
-      );
+      throw new SurfCreditsExhaustedError();
     }
     throw new Error(`Surf API error: ${errObj?.message || errObj?.code || "unknown"}`);
   }
@@ -60,7 +63,7 @@ export function parseSurfOutput(command: string, stdout: string): unknown {
 }
 
 function isPermanentCliError(message: string): boolean {
-  return /unknown command|unknown flag|validation failed|expected value to be one of|credits exhausted/i.test(
+  return /unknown command|unknown flag|validation failed|expected value to be one of/i.test(
     message
   );
 }
@@ -72,13 +75,6 @@ export function isRetryableFailure(message: string): boolean {
   return /timed out|ETIMEDOUT|ECONNRESET|maxbuffer|truncated or invalid JSON output|invalid JSON output|non-JSON output|returned empty output|rate limit|429|5\d\d|temporarily/i.test(
     message
   );
-}
-
-export function isTransientExecError(e: unknown): boolean {
-  const err = e as ExecError;
-  if (err?.killed === true || err?.signal === "SIGTERM") return true;
-  const code = String(err?.code ?? "");
-  return code === "ETIMEDOUT" || code === "ECONNRESET";
 }
 
 export async function runSurf(
@@ -97,18 +93,20 @@ export async function runSurf(
 
   let lastError: Error | null = null;
 
-  for (let attempt = 0; attempt < SURF_TIMEOUT_MS.length; attempt++) {
+  for (let attempt = 0; attempt < SURF.timeoutsMs.length; attempt++) {
     if (attempt > 0) {
-      await sleep(RETRY_DELAY_MS * attempt);
+      await sleep(SURF.retryDelayMs * attempt);
     }
 
     try {
       const { stdout } = await execFileAsync("surf", args, {
-        timeout: SURF_TIMEOUT_MS[attempt],
-        maxBuffer: SURF_MAX_BUFFER,
+        timeout: SURF.timeoutsMs[attempt],
+        maxBuffer: SURF.maxBuffer,
       });
       return parseSurfOutput(command, stdout);
     } catch (e: unknown) {
+      if (e instanceof SurfCreditsExhaustedError) throw e;
+
       const err = e as ExecError;
 
       if (String(err?.code) === "ENOENT") {
@@ -124,10 +122,7 @@ export async function runSurf(
         try {
           parseSurfOutput(command, err.stdout);
         } catch (parseErr) {
-          if (
-            parseErr instanceof Error &&
-            parseErr.message.includes("credits exhausted")
-          ) {
+          if (parseErr instanceof SurfCreditsExhaustedError) {
             throw parseErr;
           }
           if (parseErr instanceof Error) {
@@ -144,7 +139,7 @@ export async function runSurf(
       const permanent = isPermanentCliError(message);
       const retryable = isTransientExecError(e) || isRetryableFailure(message);
 
-      if (!permanent && retryable && attempt < SURF_TIMEOUT_MS.length - 1) {
+      if (!permanent && retryable && attempt < SURF.timeoutsMs.length - 1) {
         continue;
       }
       throw lastError;

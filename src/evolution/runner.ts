@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import Table from "cli-table3";
+import { formatDuration } from "../progress.js";
 import { runGeneration, type ArenaOptions } from "../arena.js";
 import { appendPlaybookHistory, loadPlaybook, savePlaybook } from "./playbook.js";
 import { evolvePlaybook } from "./analyst.js";
@@ -100,10 +101,11 @@ export async function runEvolution(
       improvement,
       keyMutation,
       reverted,
+      durationMs: result.metadata?.totalDurationMs,
     });
 
     console.log(chalk.bold(`\n  Generation ${result.generation} complete:`));
-    console.log(`  Score: ${result.averageScore} (${improvement})`);
+    console.log(`  Align*: ${result.averageScore} (${improvement})`);
     if (reverted) {
       console.log(
         chalk.red(`  Regression vs best (${bestScore.toFixed(3)}) — reverting to best playbook before mutating.`)
@@ -156,8 +158,8 @@ function printEvolutionTable(history: EvolutionHistoryEntry[]): void {
   console.log(chalk.bold("\n\n=== Evolution Summary ===\n"));
 
   const table = new Table({
-    head: ["Gen", "Score", "Change", "Key Mutation"],
-    colWidths: [6, 10, 12, 48],
+    head: ["Gen", "Align*", "Change", "Time", "Key Mutation"],
+    colWidths: [6, 10, 12, 9, 40],
     style: { head: ["cyan"] },
     wordWrap: true,
   });
@@ -173,11 +175,15 @@ function printEvolutionTable(history: EvolutionHistoryEntry[]): void {
       String(row.generation),
       row.averageScore.toFixed(3),
       changeColor(change),
+      formatDuration(row.durationMs),
       row.keyMutation,
     ]);
   }
 
   console.log(table.toString());
+  console.log(
+    chalk.gray("  * Align = calibration against the live market-implied probability (0-1, higher = closer).")
+  );
   if (history.some((h) => h.reverted)) {
     console.log(chalk.gray("  ⏮ = regressed vs best score; playbook mutation rolled back"));
   }
