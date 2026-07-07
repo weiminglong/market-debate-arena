@@ -170,14 +170,14 @@ Measured runtimes on current setup:
 
 - `--showcase --agent-runtime cursor --markets 1` (live): about **252s**
 - `bash scripts/showcase-2min.sh` (fast): about **2s**
-- `--showcase-report`: about **1-2s**
+- `report` subcommand: about **1-2s**
 
 Conclusion: for a strict 2-minute slot, use the fast path below on stage.
 
 ## 5.1 Preflight (before going on stage)
 
 ```bash
-surf auth
+npm run arena -- doctor
 npx tsc --noEmit
 ```
 
@@ -222,7 +222,7 @@ Tip:
 ### 1:50-2:00 Close
 
 ```bash
-npx tsx src/index.ts --showcase-report
+npx tsx src/index.ts report
 ```
 
 Talk track:
@@ -300,9 +300,9 @@ Message:
 
 ## 11) 2-Minute Presenter Checklist
 
-- [ ] Confirm `surf auth` is active
+- [ ] Run `npm run arena -- doctor` (checks surf auth + agent CLI)
 - [ ] Run `bash scripts/showcase-2min.sh` on stage
 - [ ] Pre-run `bash scripts/showcase-2min.sh --live` before stage
 - [ ] Keep one saved result screenshot as hard backup
-- [ ] End with `npx tsx src/index.ts --showcase-report`
+- [ ] End with `npx tsx src/index.ts report`
 

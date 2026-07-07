@@ -4,6 +4,7 @@ import {
   isRetryableFailure,
   isTransientExecError,
   parseSurfOutput,
+  SurfCreditsExhaustedError,
 } from "./surf-runner.js";
 
 describe("parseSurfOutput", () => {
@@ -34,7 +35,7 @@ describe("parseSurfOutput", () => {
     assert.deepStrictEqual(out, [{ condition_id: "x" }]);
   });
 
-  it("surfaces insufficient credit as actionable error", () => {
+  it("surfaces insufficient credit as the typed error the mock fallback keys off", () => {
     assert.throws(
       () =>
         parseSurfOutput(
@@ -43,7 +44,7 @@ describe("parseSurfOutput", () => {
             error: { code: "INSUFFICIENT_CREDIT", message: "out of credits" },
           })
         ),
-      /credits exhausted/
+      SurfCreditsExhaustedError
     );
   });
 

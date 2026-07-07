@@ -1,23 +1,19 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { AGENT_EXEC, MODELS } from "./config.js";
+import type { AgentRunOptions } from "./agent-runner.js";
 
 const execFileAsync = promisify(execFile);
 
-interface ClaudeOptions {
-  systemPrompt?: string;
-  allowBash?: boolean;
-  model?: string;
-}
-
 export async function runClaude(
   prompt: string,
-  options: ClaudeOptions = {}
+  options: AgentRunOptions = {}
 ): Promise<string> {
   const args = [
     "-p",
     prompt,
     "--model",
-    options.model || "sonnet",
+    options.model || MODELS.debater,
   ];
 
   if (options.systemPrompt) {
@@ -33,9 +29,8 @@ export async function runClaude(
   }
 
   const { stdout } = await execFileAsync("claude", args, {
-    // Research runs (6-8 surf calls + reasoning) routinely exceed 120s.
-    timeout: options.allowBash ? 240_000 : 120_000,
-    maxBuffer: 1024 * 1024 * 10,
+    timeout: options.allowBash ? AGENT_EXEC.bashTimeoutMs : AGENT_EXEC.plainTimeoutMs,
+    maxBuffer: AGENT_EXEC.maxBuffer,
   });
 
   return stdout.trim();

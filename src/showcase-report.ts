@@ -1,6 +1,8 @@
 import chalk from "chalk";
 import Table from "cli-table3";
 import { loadAllResults } from "./results.js";
+import { RQI_WEIGHTS } from "./config.js";
+import { round3 } from "./util.js";
 import type { GenerationResult } from "./types.js";
 
 export interface ShowcaseMetrics {
@@ -9,10 +11,6 @@ export interface ShowcaseMetrics {
   avgSourceDiversityPerSide: number;
   avgJudgeConfidence: number;
   researchQualityIndex: number;
-}
-
-function round3(value: number): number {
-  return Math.round(value * 1000) / 1000;
 }
 
 // Older or partially-written result files can carry null/NaN numbers after
@@ -66,7 +64,9 @@ export function computeShowcaseMetrics(
   const diversityScore = Math.min(avgSourceDiversityPerSide / 5, 1);
   const confidenceScore = Math.max(0, Math.min(1, avgJudgeConfidence));
   const researchQualityIndex = round3(
-    claimsScore * 0.45 + diversityScore * 0.35 + confidenceScore * 0.2
+    claimsScore * RQI_WEIGHTS.claims +
+      diversityScore * RQI_WEIGHTS.diversity +
+      confidenceScore * RQI_WEIGHTS.confidence
   );
 
   return {

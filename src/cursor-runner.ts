@@ -4,14 +4,10 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSequentialRunner } from "./sequential-runner.js";
+import { AGENT_EXEC } from "./config.js";
+import type { AgentRunOptions } from "./agent-runner.js";
 
 const execFileAsync = promisify(execFile);
-
-interface CursorOptions {
-  systemPrompt?: string;
-  allowBash?: boolean;
-  model?: string;
-}
 
 // SECURITY: with --force the cursor runtime grants unrestricted shell to a
 // model that is fed untrusted market/web content — unlike the claude runtime,
@@ -57,14 +53,14 @@ function buildPrompt(prompt: string, systemPrompt?: string): string {
 
 export async function runCursor(
   prompt: string,
-  options: CursorOptions = {}
+  options: AgentRunOptions = {}
 ): Promise<string> {
   return runCursorSequential(prompt, options);
 }
 
 async function runCursorInternal(
   prompt: string,
-  options: CursorOptions = {}
+  options: AgentRunOptions = {}
 ): Promise<string> {
   const args = [
     "--print",
@@ -87,8 +83,8 @@ async function runCursorInternal(
   args.push(buildPrompt(prompt, options.systemPrompt));
 
   const { stdout } = await execFileAsync("cursor-agent", args, {
-    timeout: options.allowBash ? 240_000 : 120_000,
-    maxBuffer: 1024 * 1024 * 10,
+    timeout: options.allowBash ? AGENT_EXEC.bashTimeoutMs : AGENT_EXEC.plainTimeoutMs,
+    maxBuffer: AGENT_EXEC.maxBuffer,
   });
 
   return stdout.trim();

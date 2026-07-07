@@ -83,14 +83,7 @@ require_cmd npx
 # Fast mode is fully offline (mock data, no agents) — only live mode needs
 # surf and an agent runtime.
 if [[ "$MODE" == "live" ]]; then
-  require_cmd surf
-  if [[ "$RUNTIME" == "cursor" ]]; then
-    require_cmd cursor-agent
-  else
-    require_cmd claude
-  fi
-  echo "[preflight] Checking surf CLI responds..."
-  surf auth >/dev/null
+  npx tsx src/index.ts doctor --agent-runtime "$RUNTIME"
 fi
 
 ARENA_ARGS=(--showcase --agent-runtime "$RUNTIME")
@@ -101,10 +94,10 @@ fi
 ARENA_OK=1
 if [[ "$MODE" == "live" ]]; then
   echo "[demo] Running live showcase evidence (markets=3, generations=4)..."
-  npx tsx src/index.ts "${ARENA_ARGS[@]}" --markets 3 --generations 4 || ARENA_OK=0
+  npx tsx src/index.ts run "${ARENA_ARGS[@]}" --markets 3 --generations 4 || ARENA_OK=0
 else
   echo "[demo] Running fast 2-minute stage flow (mock, markets=2, generations=3)..."
-  npx tsx src/index.ts "${ARENA_ARGS[@]}" --mock --markets 2 --generations 3 || ARENA_OK=0
+  npx tsx src/index.ts run "${ARENA_ARGS[@]}" --mock --markets 2 --generations 3 || ARENA_OK=0
 fi
 
 if [[ "$ARENA_OK" -eq 0 ]]; then
@@ -112,7 +105,7 @@ if [[ "$ARENA_OK" -eq 0 ]]; then
 fi
 
 echo "[demo] Showing optimization report..."
-npx tsx src/index.ts --showcase-report
+npx tsx src/index.ts report
 
 if [[ "$ARENA_OK" -eq 0 ]]; then
   exit 1

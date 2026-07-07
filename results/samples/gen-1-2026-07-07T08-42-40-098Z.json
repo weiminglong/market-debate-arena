@@ -1,0 +1,254 @@
+{
+  "generation": 1,
+  "debates": [
+    {
+      "market": {
+        "question": "Will Bitcoin reach $67,500 in July?",
+        "conditionId": "0xbe20fcfd54937c2a48a7b8521ca349e6a2c4373566328ebb950a8c35ab1be3d9",
+        "platform": "polymarket",
+        "latestPrice": 0.5,
+        "category": "Crypto",
+        "marketLink": "https://polymarket.com/event/what-price-will-bitcoin-hit-in-july-2026",
+        "status": "active"
+      },
+      "yesArgument": {
+        "side": "YES",
+        "claims": [
+          {
+            "claim": "BTC already traded at $67,203.74 on June 16, 2026 — within 0.44% of the $67,500 target — just three weeks before market resolution.",
+            "source": "surf market-price --symbol BTC",
+            "data": {
+              "june_16_high": 67203.74,
+              "target": 67500,
+              "gap_pct": 0.44,
+              "current_price": 63034.77,
+              "date_of_high": "2026-06-16"
+            },
+            "reasoning": "The target level is not a speculative moonshot — BTC has already nearly touched it once this cycle. This proves $67,500 sits well inside BTC's demonstrated trading range for the period, not in uncharted territory requiring a historic breakout."
+          },
+          {
+            "claim": "BTC has rallied +6.3% in the last 7 days alone, recovering from a June 25 swing low of $58,188 to $63,035, an +8.3% bounce off the bottom.",
+            "source": "surf market-price --symbol BTC",
+            "data": {
+              "low_june25": 58188.67,
+              "price_7d_ago": 59278.71,
+              "price_now": 63034.77,
+              "week_change_pct": 6.3,
+              "bounce_from_low_pct": 8.3
+            },
+            "reasoning": "Strong, accelerating short-term momentum is already in motion. Only a further ~7.1% gain from current levels is needed to hit $67,500 — less than the move already achieved in the past single week — with 24 days still remaining until July 31 expiry."
+          },
+          {
+            "claim": "The actual Kalshi market for this exact question ('Will BTC trimmed mean be above $67,500 by Jul 31, 2026') is trading at 0.47 with real liquidity: $112,549 in 7-day volume and 1,348 trades.",
+            "source": "surf search-prediction-market --q \"bitcoin 67500\"",
+            "data": {
+              "platform": "kalshi",
+              "latest_price": 0.47,
+              "volume_7d": 112549,
+              "trade_count_7d": 1348,
+              "open_interest_usd": 74768
+            },
+            "reasoning": "Active, liquid market pricing already sits near coin-flip odds rather than treating $67,500 as a long-shot — confirming this is a genuinely contested, achievable outcome that deserves at least even-money (and arguably better, given the other bullish signals below)."
+          },
+          {
+            "claim": "RSI sits at a neutral 49.5, well below overbought territory (70), leaving substantial technical room for a further rally before momentum exhaustion.",
+            "source": "surf market-price-indicator --indicator rsi --symbol BTC",
+            "data": {
+              "rsi": 49.53,
+              "interval": "1d"
+            },
+            "reasoning": "An RSI near 50 indicates BTC is neither overbought nor overextended, meaning a move toward $67,500 would not be fighting classic reversal signals — there's technical headroom for continuation."
+          },
+          {
+            "claim": "Bollinger Band structure shows the middle band at $61,922 and upper band at $65,448, with BTC recently expanding bands to $67,203 (above the current upper band) just weeks ago — confirming volatility capacity to reach $67,500 again.",
+            "source": "surf market-price-indicator --indicator bbands --symbol BTC",
+            "data": {
+              "bbands_lower": 58395.42,
+              "bbands_middle": 61921.84,
+              "bbands_upper": 65448.26
+            },
+            "reasoning": "The ~$7,053 band width shows BTC's normal volatility envelope is large enough that a push to $67,500 (only ~3% above the current upper band) is a routine volatility expansion for this asset, not an outlier event."
+          },
+          {
+            "claim": "On-chain NUPL (Net Unrealized Profit/Loss) has climbed steadily from 0.092 to 0.170 over the past two weeks, signaling renewed holder profitability and strengthening bullish conviction.",
+            "source": "surf market-onchain-indicator --symbol BTC --metric nupl",
+            "data": {
+              "nupl_two_weeks_ago": 0.0923,
+              "nupl_latest": 0.1703,
+              "trend": "rising"
+            },
+            "reasoning": "Rising NUPL reflects accumulating unrealized gains across the holder base, a classic on-chain confirmation of an uptrend gaining strength rather than a dead-cat bounce — supportive of continued upside into July."
+          },
+          {
+            "claim": "Fear & Greed Index has improved from 'Extreme Fear' (as low as 10) three weeks ago to 'Fear' (26) currently, even as price recovered — a contrarian setup where sentiment still lags price strength.",
+            "source": "surf market-fear-greed",
+            "data": {
+              "latest_value": 26,
+              "latest_classification": "Fear",
+              "three_weeks_ago_value": 10,
+              "three_weeks_ago_classification": "Extreme Fear"
+            },
+            "reasoning": "Extreme fear historically precedes sharp reversals; sentiment recovering slower than price means there is still 'wall of worry' capital on the sidelines that can fuel further upside as fear unwinds toward neutral/greed."
+          },
+          {
+            "claim": "$962.76M in BTC short positions face liquidation above $65,110, setting up a potential short-squeeze cascade toward higher prices including $67,500.",
+            "source": "surf news-feed --project bitcoin",
+            "data": {
+              "short_liquidation_level": 65110,
+              "short_liquidation_usd": 962760000,
+              "long_liquidation_level": 62602,
+              "long_liquidation_usd": 422580000
+            },
+            "reasoning": "A break above $65,110 could force nearly $1B in short covering, mechanically accelerating price higher and materially improving the odds of tagging $67,500 before month-end via liquidation-driven momentum."
+          }
+        ],
+        "summary": "The case for YES rests on one decisive fact: BTC already traded at $67,203 on June 16, 2026 — a mere 0.44% below the $67,500 target — proving this level is squarely within the asset's demonstrated range this cycle, not a speculative reach. Since then, BTC bottomed at $58,188 (June 25) and has staged an aggressive recovery, up 8.3% off the low and +6.3% in just the past week alone to reach ~$63,035 today, with 24 days still remaining before the July 31 deadline. Technicals support continuation: RSI is neutral at 49.5 (no overbought exhaustion), and Bollinger Bands show ample volatility capacity given bands already stretched to $67,203 recently. On-chain NUPL is trending firmly upward (0.09 → 0.17), confirming strengthening holder conviction, while Fear & Greed sentiment (26, 'Fear') still lags the price recovery — a classic contrarian bullish setup with room for sentiment-driven buying to catch up. Finally, nearly $1B in short positions sit exposed above $65,110, meaning a modest further rally could trigger a liquidation cascade that mechanically propels price toward $67,500. The live Kalshi market for this exact question already prices the outcome near coin-flip (0.47) with real trading volume, but given the recent proximity to target, accelerating weekly momentum, and multiple converging bullish technical/on-chain/sentiment signals, the true probability of YES is favorable relative to current pricing."
+      },
+      "noArgument": {
+        "side": "NO",
+        "claims": [
+          {
+            "claim": "BTC is trading at ~$63,035, requiring a 7.08% rally in the remaining days of July to hit $67,500",
+            "source": "surf market-price --symbol BTC",
+            "data": {
+              "latest_price": 63034.77,
+              "target_price": 67500,
+              "gap_pct": "7.08%"
+            },
+            "reasoning": "A 7%+ move in a matter of weeks is a large ask absent a clear bullish catalyst; the market has to break decisively out of its current range, not just drift upward."
+          },
+          {
+            "claim": "Momentum indicators show a neutral-to-bearish setup, not a breakout in progress",
+            "source": "surf market-price-indicator --indicator rsi/macd --symbol BTC",
+            "data": {
+              "rsi_1d": 49.53,
+              "macd_value": -809.51,
+              "macd_signal": -1508.74
+            },
+            "reasoning": "RSI at ~49.5 is dead-neutral (no oversold bounce setup, no overbought exhaustion) and MACD remains in negative territory below its signal line, indicating the medium-term trend is still bearish/sideways rather than accelerating toward new highs."
+          },
+          {
+            "claim": "Fear & Greed Index has been stuck in 'Extreme Fear' for weeks, only recently ticking up to 'Fear' (26)",
+            "source": "surf market-fear-greed",
+            "data": {
+              "latest": {
+                "value": 26,
+                "classification": "Fear"
+              },
+              "prior_readings": [
+                23,
+                24,
+                21,
+                22,
+                18,
+                10,
+                14,
+                13,
+                17
+              ]
+            },
+            "reasoning": "Persistent fear-dominated sentiment is inconsistent with the kind of demand surge needed to drive a 7%+ rally in weeks; sentiment typically needs to flip to greed before sharp upside moves sustain."
+          },
+          {
+            "claim": "Coinbase Premium has been negative for a record 50 consecutive days, signaling weak US spot demand",
+            "source": "surf news-feed --project bitcoin",
+            "data": {
+              "headline": "Bitcoin Coinbase Premium negative for 50 straight days, a new record",
+              "premium": "-0.0742%"
+            },
+            "reasoning": "A prolonged negative Coinbase premium indicates US institutional/retail buyers are not leading price action, removing a key historical driver of BTC breakouts and making a fast move to $67,500 less likely."
+          },
+          {
+            "claim": "On-chain NUPL remains low (0.09–0.17), far from the euphoria zone that typically accompanies strong rallies",
+            "source": "surf market-onchain-indicator --symbol BTC --metric nupl",
+            "data": {
+              "recent_range": "0.092 - 0.170",
+              "euphoria_threshold": "~0.5-0.75"
+            },
+            "reasoning": "Low NUPL shows the market lacks the unrealized-profit buildup and holder conviction that historically precedes sharp upward legs; the on-chain backdrop supports consolidation, not a breakout to new highs."
+          },
+          {
+            "claim": "A related Polymarket contract on 'Will Bitcoin dip to $57,500 in July?' trades at 0.34 with smart money net BULLISH on that downside outcome",
+            "source": "surf search-prediction-market --q \"Bitcoin $67,500 July\"",
+            "data": {
+              "market": "will-bitcoin-dip-to-57pt5k-in-july-2026",
+              "latest_price": 0.34,
+              "smart_money_direction": "BULLISH",
+              "open_interest_usd": 136565
+            },
+            "reasoning": "Smart money assigning a meaningful 34% probability to a further leg down to $57,500 (a nearly 9% drop from current levels) directly undercuts the case for a 7% rally to $67,500 in the same window — the informed capital is hedging toward downside, not chasing upside."
+          },
+          {
+            "claim": "The market for BTC reaching $82,500 in July is priced at just 0.008 (0.8%), showing the crowd sees minimal room for a big upside breakout this month",
+            "source": "surf search-prediction-market --q \"Bitcoin $67,500 July\"",
+            "data": {
+              "market": "will-bitcoin-reach-82pt5k-in-july-2026",
+              "latest_price": 0.008
+            },
+            "reasoning": "The steep drop-off in probability from $67,500 (50%) to $82,500 (0.8%) shows the market believes upside is capped near current levels; combined with weak momentum and sentiment data, the 50% price on the $67,500 contract looks generous rather than conservative."
+          },
+          {
+            "claim": "Heavy short liquidation clustering at $65,110 ($963M) sits below the $67,500 target, marking a resistance zone BTC must clear with volume it currently lacks",
+            "source": "surf news-feed --project bitcoin",
+            "data": {
+              "short_liq_level": 65110,
+              "short_liq_usd": "962.76M",
+              "long_liq_level": 62602,
+              "long_liq_usd": "422.58M"
+            },
+            "reasoning": "The presence of large liquidation walls on both sides just below the target shows the market has been range-bound and choppy rather than trending, meaning even a squeeze toward $65,110 may stall well short of the $67,500 threshold without fresh catalysts."
+          }
+        ],
+        "summary": "Bitcoin needs a 7%+ rally from its current ~$63,035 level to hit $67,500 by end of July, but every major signal points to stalled momentum rather than an imminent breakout. RSI is neutral (49.5) and MACD remains negative, showing no bullish acceleration. Sentiment has been mired in Extreme Fear for weeks and only just ticked to Fear (26), a backdrop historically associated with consolidation, not sharp rallies. Coinbase Premium has been negative for a record 50 straight days, reflecting weak US spot demand, while on-chain NUPL (0.09-0.17) is far below the euphoria levels seen ahead of past breakouts. Crucially, smart money on Polymarket is pricing a real 34% chance of a dip to $57,500 this month, and the market assigns just 0.8% probability to BTC reaching $82,500 — evidence that informed capital sees limited upside and material downside risk in the same window. Layered on top of a resistance zone near $65,110 marked by nearly $1B in short liquidations, the path to $67,500 requires a decisive catalyst that current technical, sentiment, and on-chain data give no indication is forming. The 50/50 market price overstates the odds of YES; the weight of evidence favors NO."
+      },
+      "consensus": {
+        "winner": "NO",
+        "votes": [
+          {
+            "winner": "YES",
+            "confidence": 0.72,
+            "reasoning": "YES's core empirical claim is the strongest evidence in this debate: BTC traded at $67,203 on June 16—just 0.44% below the $67,500 target and only 21 days before evaluation. This proves the target is not speculative; the market has already nearly achieved it recently. The reframing matters critically: the question becomes 'can BTC recover to levels it visited three weeks ago?' rather than 'can it break into new territory?' With 24 days remaining in July and a recent +6.3% weekly rally off the June 25 low, the 7.1% move required is well-precedented momentum. YES's supporting evidence (RSI at 49.5 with room to run, NUPL trending upward from 0.092→0.170, Fear & Greed improving from Extreme Fear) all reinforce continuation, while NO relies more on abstract momentum concerns (MACD negative, 'signals show stalling') rather than concrete recent price action. NO's Coinbase Premium data (negative 50 days) is valid market structure evidence YES doesn't address, and MACD weakness is real, preventing higher confidence. However, these don't overcome the empirical fact that $67,203 was already achieved and the market only needs to repeat a move in its recent range, not execute a historic breakout. NO's probability-distribution argument (steep drop from 0.50 to 0.008 probability as strikes move higher) is reasonable but less conclusive than YES's empirical proximity argument."
+          },
+          {
+            "winner": "NO",
+            "confidence": 0.58,
+            "reasoning": "NO presents a stronger case by addressing momentum confirmation and structural signals. While YES correctly emphasizes that BTC recently traded at $67,203 and rallied 6.3% in a week—proving the pace is achievable—NO points out critical gaps in YES's narrative: (1) MACD remains negative despite the rally, suggesting momentum is not yet confirmed as sustainable, not just a bounce; (2) Fear sentiment at 26 has improved but hasn't shifted materially, and historically sustained 7%+ rallies require sentiment to reach neutral (50+), not remain in Fear; (3) Structural weakness persists—Coinbase Premium negative for 50 consecutive days reflects sustained weak US spot demand; (4) BTC faces multiple hurdles (clear $65,110 first, then another 3% to target), not one easy push; (5) Smart money on Polymarket pricing 34% probability of further downside to $57,500 demonstrates informed capital is hedging downside risk, not chasing upside. YES's technical argument (RSI not overbought) and on-chain trend (NUPL improving) are valid but insufficient without broader trend confirmation. NO's synthesis of multiple independent signals—all pointing toward consolidation rather than breakout—is more compelling than YES's focus on recent price proximity and pace-of-move alone. The Kalshi market at 0.47 (nearly 50/50) is neither team's smoking gun; the steeper probability curve on Polymarket (50% at $67,500 vs. 0.8% at $82,500) tilts slightly toward NO's bearish-consolidation thesis."
+          },
+          {
+            "winner": "NO",
+            "confidence": 0.6,
+            "reasoning": "NO presents more technically complete evidence and better addresses smart money positioning, while YES overlooks critical signals. YES effectively emphasizes that BTC already traded at $67,203 on June 16—just 3 weeks prior and only 0.44% from target—which is genuine evidence of achievability. However, NO identifies a material technical gap YES ignores: MACD remaining negative despite price recovery is a bearish divergence that contradicts the claim of 'strong momentum.' More compellingly, NO cites Polymarket smart money positioning (34% probability of a $57,500 dip vs. only 0.8% for $82,500 breakout), showing informed capital is hedging downside, not chasing upside—a direct counter to YES's thesis that probability exceeds the 0.47 Kalshi price. NO also logically frames the June 16 high as a failed breakout (BTC declined 13% to $58,188 after reaching it), suggesting mean reversion rather than sustained momentum. YES's 50-day negative Coinbase Premium signals institutional demand weakness that NO doesn't address, but NO's inclusion of MACD negativity plus smart money hedging for downside outweighs YES's recency and momentum arguments. Neither argument is weak—the actual market is pricing ~50%—but NO's technical completeness and engagement with smart money data provides marginally stronger evidence."
+          }
+        ],
+        "unanimous": false,
+        "averageConfidence": 0.633
+      },
+      "score": 0.5
+    }
+  ],
+  "averageScore": 0.5,
+  "playbook": {
+    "generation": 1,
+    "lessons": [],
+    "toolPriority": [
+      "getPrice",
+      "getTechnicalIndicator",
+      "getSmartMoney",
+      "getOnChainIndicator",
+      "getSocialMindshare",
+      "getNewsFeed",
+      "getFearGreed",
+      "getDeFiMetrics",
+      "getMarketRanking",
+      "getSocialDetail"
+    ],
+    "avoidPatterns": []
+  },
+  "metadata": {
+    "runId": "mraedfof-wekiu4",
+    "createdAt": "2026-07-07T08:42:40.097Z",
+    "runtime": "claude",
+    "mock": false,
+    "showcase": true
+  }
+}

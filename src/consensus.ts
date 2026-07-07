@@ -1,7 +1,5 @@
 import type { ConsensusResult, Side, Vote } from "./types.js";
 
-export const MIN_VALID_VOTES = 2;
-
 export function computeConsensus(votes: Vote[]): ConsensusResult {
   if (votes.length === 0) {
     throw new Error("cannot compute consensus with zero valid votes");

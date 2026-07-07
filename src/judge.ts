@@ -1,5 +1,6 @@
 import { runAgent, type AgentRuntime } from "./agent-runner.js";
 import { extractLastJSONObject } from "./json-extract.js";
+import { MODELS } from "./config.js";
 import type { Argument, Vote } from "./types.js";
 
 const JUDGE_SYSTEM = `You are an impartial judge evaluating a debate between two AI research agents about a prediction market question. Each agent has presented evidence-backed arguments for their side.
@@ -59,7 +60,7 @@ Which side presented a stronger, more well-evidenced case? Vote now.`;
   for (let attempt = 0; attempt < 2; attempt++) {
     const output = await runAgent(runtime, prompt, {
       systemPrompt: JUDGE_SYSTEM,
-      model: "haiku",
+      model: MODELS.judge,
     });
 
     const vote = parseVote(output);

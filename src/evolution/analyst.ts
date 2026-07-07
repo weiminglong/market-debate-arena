@@ -1,5 +1,6 @@
 import { runAgent, type AgentRuntime } from "../agent-runner.js";
 import { extractLastJSONObject } from "../json-extract.js";
+import { MODELS } from "../config.js";
 import { sanitizePlaybook } from "./playbook.js";
 import {
   KNOWN_TOOLS,
@@ -82,7 +83,7 @@ Analyze these results and produce an updated playbook. Focus on:
 
   const output = await runAgent(runtime, prompt, {
     systemPrompt: ANALYST_SYSTEM,
-    model: "sonnet",
+    model: MODELS.analyst,
   });
 
   // On unparseable analyst output, keep the current playbook but still advance
