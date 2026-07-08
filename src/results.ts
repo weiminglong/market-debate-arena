@@ -71,7 +71,10 @@ export function saveGenerationResult(result: GenerationResult): string {
 export function loadStoredResults(): StoredResult[] {
   let files: string[];
   try {
-    files = readdirSync(resultsDir()).filter((f) => f.endsWith(".json"));
+    // Only generation result files — not sibling state like resolutions.json.
+    files = readdirSync(resultsDir()).filter(
+      (f) => f.startsWith("gen-") && f.endsWith(".json")
+    );
   } catch {
     return [];
   }
