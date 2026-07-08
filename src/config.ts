@@ -65,7 +65,13 @@ export const RQI_WEIGHTS = { claims: 0.45, diversity: 0.35, confidence: 0.2 } as
  * price| worth acting on — it absorbs model noise plus prediction-market fees
  * and slippage, so anything inside the band is a PASS.
  */
-export const EDGE = { threshold: 0.08 } as const;
+export const EDGE = {
+  threshold: 0.08,
+  // With `run --rounds N` (N>1) an edge must also exceed this many standard
+  // errors of the ensembled estimate before it fires a Call, so estimator noise
+  // isn't mistaken for signal.
+  noiseSigmas: 2,
+} as const;
 
 /**
  * Resolution thresholds for scoring past predictions. Surf marks settled

@@ -8,13 +8,30 @@ function claim(over: Partial<Claim>): Claim {
 }
 
 describe("isMarketLookupSource", () => {
-  it("flags prediction-market lookup and odds sources", () => {
-    for (const s of ["surf search-prediction-market", "search-prediction-market", "polymarket odds", "kalshi price"]) {
+  it("flags prediction-market lookup, listing, and odds sources", () => {
+    for (const s of [
+      "surf search-prediction-market",
+      "search-prediction-market",
+      "polymarket odds",
+      "kalshi price",
+      "polymarket-markets",
+      "polymarket-events",
+      "prediction-market-analytics",
+      "kalshi-odds",
+    ]) {
       assert.strictEqual(isMarketLookupSource(s), true, s);
     }
   });
   it("does NOT flag legitimate research sources", () => {
-    for (const s of ["market-price", "polymarket-smart-money", "news-feed", "market-fear-greed", "market-onchain-indicator"]) {
+    for (const s of [
+      "market-price",
+      "polymarket-smart-money",
+      "news-feed",
+      "market-fear-greed",
+      "market-onchain-indicator",
+      "market-ranking",
+      "social-mindshare",
+    ]) {
       assert.strictEqual(isMarketLookupSource(s), false, s);
     }
   });

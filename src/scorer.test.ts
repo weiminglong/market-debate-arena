@@ -1,7 +1,13 @@
 // src/scorer.test.ts
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { scoreDebate, computeEdge, recommendTrade } from "./scorer.js";
+import {
+  scoreDebate,
+  computeEdge,
+  recommendTrade,
+  aggregateProbabilities,
+  noiseAdjustedThreshold,
+} from "./scorer.js";
 
 describe("scoreDebate", () => {
   it("scores high when the verdict agrees with the market", () => {
@@ -67,5 +73,51 @@ describe("recommendTrade", () => {
     const edge = computeEdge(0.49, 0.34);
     assert.ok(edge > 0, "YES should look underpriced");
     assert.strictEqual(recommendTrade(edge).recommendation, "BUY_YES");
+  });
+});
+
+describe("aggregateProbabilities", () => {
+  it("returns the mean with zero SD for a single draw", () => {
+    assert.deepStrictEqual(aggregateProbabilities([0.42]), { mean: 0.42, stdev: 0 });
+  });
+  it("computes mean and sample SD across draws", () => {
+    // The re-dogfood's real swing: 0.487 then 0.297 on the same market.
+    const { mean, stdev } = aggregateProbabilities([0.487, 0.297]);
+    assert.ok(Math.abs(mean - 0.392) < 1e-9);
+    assert.ok(Math.abs(stdev - 0.134) < 0.002); // |Δ|/√2 ≈ 0.1344
+  });
+  it("has zero SD when every draw agrees", () => {
+    assert.strictEqual(aggregateProbabilities([0.6, 0.6, 0.6]).stdev, 0);
+  });
+  it("handles the empty set", () => {
+    assert.deepStrictEqual(aggregateProbabilities([]), { mean: 0, stdev: 0 });
+  });
+});
+
+describe("noiseAdjustedThreshold", () => {
+  it("is the base threshold for a single draw (no noise estimate)", () => {
+    assert.strictEqual(noiseAdjustedThreshold(0, 1, 0.08, 2), 0.08);
+    assert.strictEqual(noiseAdjustedThreshold(0.2, 1, 0.08, 2), 0.08);
+  });
+  it("raises the bar to N standard errors when the estimate is noisy", () => {
+    // SD 0.134 over 2 rounds → SE ≈ 0.0948 → 2·SE ≈ 0.19 > 0.08 base.
+    const t = noiseAdjustedThreshold(0.134, 2, 0.08, 2);
+    assert.ok(t > 0.18 && t < 0.20, `expected ~0.19, got ${t}`);
+  });
+  it("keeps the base threshold when noise is small", () => {
+    // SD 0.02 over 4 rounds → SE 0.01 → 2·SE 0.02 < 0.08 base.
+    assert.strictEqual(noiseAdjustedThreshold(0.02, 4, 0.08, 2), 0.08);
+  });
+  it("makes a noisy 0.15 edge PASS but a clean one act", () => {
+    // Noisy: threshold ~0.19 > edge 0.15 → PASS.
+    assert.strictEqual(
+      recommendTrade(0.15, noiseAdjustedThreshold(0.134, 2, 0.08, 2)).recommendation,
+      "PASS"
+    );
+    // Clean: threshold stays 0.08 < edge 0.15 → BUY_YES.
+    assert.strictEqual(
+      recommendTrade(0.15, noiseAdjustedThreshold(0.02, 4, 0.08, 2)).recommendation,
+      "BUY_YES"
+    );
   });
 });

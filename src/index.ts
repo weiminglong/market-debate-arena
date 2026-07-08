@@ -39,6 +39,7 @@ function positiveInt(label: string, max: number) {
 interface RunFlags {
   markets: number;
   generations: number;
+  rounds: number;
   conditionId?: string;
   showcase?: boolean;
   verbose: boolean;
@@ -79,6 +80,15 @@ async function runAction(opts: RunFlags): Promise<void> {
   if (overrides.length > 0) {
     console.log(chalk.gray(`  Config overrides: ${overrides.join(", ")}\n`));
   }
+  if (opts.rounds > 1 && !opts.mock) {
+    const debates = opts.rounds * opts.markets * opts.generations;
+    console.log(
+      chalk.yellow(
+        `  Ensembling: ${opts.rounds} rounds × ${opts.markets} markets × ${opts.generations} gen ` +
+          `≈ ${debates} live debates (~${opts.rounds}× the usual time and credits)\n`
+      )
+    );
+  }
 
   const arenaOptions = {
     marketCount: opts.markets,
@@ -87,6 +97,7 @@ async function runAction(opts: RunFlags): Promise<void> {
     verbose: opts.verbose,
     mock: opts.mock,
     agentRuntime,
+    rounds: opts.rounds,
     runId: newRunId(),
   };
 
@@ -104,14 +115,15 @@ function printScorecard(result: GenerationResult): void {
 
   const table = new Table({
     head: ["Market", "Mkt P", "Model P", "Edge", "Call", "Panel"],
-    colWidths: [36, 7, 9, 8, 10, 8],
+    colWidths: [33, 7, 12, 8, 10, 8],
     style: { head: ["cyan"] },
   });
 
+  let anyEnsembled = false;
   for (const debate of result.debates) {
     const question =
-      debate.market.question.length > 34
-        ? debate.market.question.slice(0, 31) + "..."
+      debate.market.question.length > 31
+        ? debate.market.question.slice(0, 28) + "..."
         : debate.market.question;
     const callColor =
       debate.recommendation === "BUY_YES"
@@ -122,10 +134,15 @@ function printScorecard(result: GenerationResult): void {
     const yes = debate.consensus.votes.filter((v) => v.winner === "YES").length;
     const no = debate.consensus.votes.filter((v) => v.winner === "NO").length;
     const panel = `${yes}-${no}${debate.consensus.unanimous ? "U" : ""}`;
+    const modelCell =
+      debate.probabilityStdev !== undefined
+        ? `${debate.consensus.modelProbability.toFixed(2)}±${debate.probabilityStdev.toFixed(2)}`
+        : debate.consensus.modelProbability.toFixed(2);
+    if (debate.probabilityStdev !== undefined) anyEnsembled = true;
     table.push([
       question,
       debate.market.latestPrice.toFixed(2),
-      debate.consensus.modelProbability.toFixed(2),
+      modelCell,
       (debate.edge >= 0 ? "+" : "") + debate.edge.toFixed(2),
       callColor(debate.recommendation),
       panel,
@@ -143,6 +160,13 @@ function printScorecard(result: GenerationResult): void {
         `(|edge| ≥ threshold) · mean |edge| ${fmt3(meanAbsEdge)} · Align* ${fmt3(result.averageScore)}`
     )
   );
+  if (anyEnsembled) {
+    console.log(
+      chalk.gray(
+        "  Model P shown as mean±SD across rounds; a Call fires only when |edge| clears the estimator noise."
+      )
+    );
+  }
   console.log(chalk.gray(`\n  ${EDGE_FOOTNOTE}`));
   console.log(chalk.gray(`  ${ALIGN_FOOTNOTE}`));
   console.log("");
@@ -312,6 +336,12 @@ program
     "-g, --generations <count>",
     "number of evolution generations (1-50)",
     positiveInt("--generations", 50),
+    1
+  )
+  .option(
+    "-r, --rounds <count>",
+    "ensemble N independent panel draws per debate; N>1 reports ±SD and noise-gates the Call (1-10)",
+    positiveInt("--rounds", 10),
     1
   )
   .option("--condition-id <id>", "specific Polymarket condition ID")

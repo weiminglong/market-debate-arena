@@ -75,6 +75,22 @@ describe("loadPredictions", () => {
     assert.strictEqual(preds[0].conditionId, "0xA");
     assert.strictEqual(preds[0].modelProbability, 0.7);
   });
+
+  it("skips old-schema predictions missing modelProbability/edge (no NaN)", () => {
+    writePrediction("0xGOOD", "2026-06-01T00-00-00-000");
+    // A pre-edge-metric result file: modelProbability and edge are absent.
+    const file = join(tempDir, "gen-1-2026-06-02T00-00-00-000-0xLEGACY.json");
+    writePrediction("0xLEGACY", "2026-06-02T00-00-00-000");
+    const legacy = JSON.parse(readFileSync(file, "utf-8"));
+    delete legacy.debates[0].consensus.modelProbability;
+    delete legacy.debates[0].edge;
+    writeFileSync(file, JSON.stringify(legacy));
+
+    const preds = loadPredictions();
+    assert.ok(preds.every((p) => Number.isFinite(p.modelProbability) && Number.isFinite(p.edge)));
+    assert.ok(preds.some((p) => p.conditionId === "0xGOOD"));
+    assert.ok(!preds.some((p) => p.conditionId === "0xLEGACY"));
+  });
 });
 
 describe("runCalibration", () => {

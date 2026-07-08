@@ -4,15 +4,21 @@ import { fetchMarkets } from "./market-selector.js";
 import { runDebater } from "./debater.js";
 import { runJudge } from "./judge.js";
 import { computeConsensus } from "./consensus.js";
-import { scoreDebate, computeEdge, recommendTrade } from "./scorer.js";
+import {
+  scoreDebate,
+  computeEdge,
+  recommendTrade,
+  aggregateProbabilities,
+  noiseAdjustedThreshold,
+} from "./scorer.js";
 import { MOCK_MARKETS, mockDebater, mockJudge } from "./mock.js";
 import { getShowcaseConditionIds } from "./showcase.js";
-import { JUDGING, PRICE_BAND } from "./config.js";
+import { EDGE, JUDGING, PRICE_BAND } from "./config.js";
 import { stripMarketLookupClaims, detectPriceLeak } from "./blind.js";
 import { startHeartbeat, formatDuration } from "./progress.js";
 import { newRunId } from "./util.js";
 import { SurfCreditsExhaustedError } from "./tools/surf-runner.js";
-import type { Argument, DebateResult, GenerationResult, Market, Playbook, Vote } from "./types.js";
+import type { Argument, ConsensusResult, DebateResult, GenerationResult, Market, Playbook, Side, Vote } from "./types.js";
 import type { AgentRuntime } from "./agent-runner.js";
 import { saveGenerationResult } from "./results.js";
 
@@ -56,21 +62,23 @@ function blindArgument(
   return cleaned;
 }
 
-async function runSingleDebate(
+interface DebateDraw {
+  yesArgument: Argument;
+  noArgument: Argument;
+  consensus: ConsensusResult;
+}
+
+// One independent price-blind draw: debaters → blind → judge panel → consensus.
+async function runDebateDraw(
   market: Market,
   playbook: Playbook,
   verbose: boolean,
-  mock: boolean = false,
-  agentRuntime: AgentRuntime = "claude"
-): Promise<DebateResult> {
-  const started = Date.now();
-
-  // Run YES and NO debaters in parallel
-  const stopDebaterHeartbeat = mock
-    ? () => {}
-    : startHeartbeat("debaters researching");
-  let yesArgument;
-  let noArgument;
+  mock: boolean,
+  agentRuntime: AgentRuntime
+): Promise<DebateDraw> {
+  const stopDebaterHeartbeat = mock ? () => {} : startHeartbeat("debaters researching");
+  let yesArgument: Argument;
+  let noArgument: Argument;
   try {
     [yesArgument, noArgument] = mock
       ? [mockDebater("YES", market, playbook), mockDebater("NO", market, playbook)]
@@ -119,9 +127,7 @@ async function runSingleDebate(
 
   const votes = rawVotes.filter((v): v is Vote => v !== null);
   if (votes.length < JUDGING.minValidVotes) {
-    throw new Error(
-      `only ${votes.length}/${JUDGING.judges} judges returned a valid vote`
-    );
+    throw new Error(`only ${votes.length}/${JUDGING.judges} judges returned a valid vote`);
   }
   if (votes.length < JUDGING.judges) {
     console.log(
@@ -129,10 +135,62 @@ async function runSingleDebate(
     );
   }
 
-  const consensus = computeConsensus(votes);
-  const score = scoreDebate(consensus.winner, market.latestPrice);
-  const edge = computeEdge(consensus.modelProbability, market.latestPrice);
-  const signal = recommendTrade(edge);
+  return { yesArgument, noArgument, consensus: computeConsensus(votes) };
+}
+
+async function runSingleDebate(
+  market: Market,
+  playbook: Playbook,
+  verbose: boolean,
+  mock: boolean = false,
+  agentRuntime: AgentRuntime = "claude",
+  rounds: number = 1
+): Promise<DebateResult> {
+  const started = Date.now();
+  const numRounds = Math.max(1, rounds);
+
+  // Ensemble N independent draws so a single noisy estimate can't masquerade as
+  // a signal. The panel's answer is the mean; the between-round SD is the noise.
+  // A failed draw is dropped, not fatal — we ensemble the survivors and only
+  // give up when every draw fails.
+  const draws: DebateDraw[] = [];
+  const drawFailures: string[] = [];
+  for (let r = 0; r < numRounds; r++) {
+    if (numRounds > 1) {
+      console.log(chalk.gray(`  Round ${r + 1}/${numRounds}...`));
+    }
+    try {
+      draws.push(await runDebateDraw(market, playbook, verbose, mock, agentRuntime));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      drawFailures.push(msg);
+      if (numRounds > 1) console.log(chalk.yellow(`  Round ${r + 1} failed: ${msg}`));
+    }
+  }
+  if (draws.length === 0) {
+    throw new Error(drawFailures[drawFailures.length - 1] || "debate produced no valid draws");
+  }
+  const ensembled = draws.length; // rounds that actually contributed
+  if (numRounds > 1 && ensembled < numRounds) {
+    console.log(chalk.yellow(`  Ensembling ${ensembled}/${numRounds} surviving round(s)`));
+  }
+
+  const probs = draws.map((d) => d.consensus.modelProbability);
+  const { mean, stdev } = aggregateProbabilities(probs);
+  // Representative draw (closest to the mean) supplies the persisted arguments.
+  const rep = draws.reduce((best, d) =>
+    Math.abs(d.consensus.modelProbability - mean) < Math.abs(best.consensus.modelProbability - mean)
+      ? d
+      : best
+  );
+
+  const winner: Side = mean >= 0.5 ? "YES" : "NO";
+  const consensus: ConsensusResult = { ...rep.consensus, winner, modelProbability: mean };
+  const score = scoreDebate(winner, market.latestPrice);
+  const edge = computeEdge(mean, market.latestPrice);
+  const ensembleReported = ensembled > 1;
+  const threshold = noiseAdjustedThreshold(stdev, ensembled);
+  const signal = recommendTrade(edge, threshold);
   const durationMs = Date.now() - started;
 
   const callColor =
@@ -141,23 +199,34 @@ async function runSingleDebate(
       : signal.recommendation === "BUY_NO"
         ? chalk.red
         : chalk.gray;
-  const voteBreakdown = `${votes.filter((v) => v.winner === "YES").length}-${votes.filter((v) => v.winner === "NO").length}`;
+  const yes = consensus.votes.filter((v) => v.winner === "YES").length;
+  const no = consensus.votes.filter((v) => v.winner === "NO").length;
+  const panel = `panel ${yes}-${no}${consensus.unanimous ? " unanimous" : ""}`;
+  const modelStr = ensembleReported
+    ? `${mean.toFixed(3)}±${stdev.toFixed(3)} (${ensembled} rounds)`
+    : mean.toFixed(3);
+  const gated =
+    ensembleReported && signal.recommendation === "PASS" && Math.abs(edge) >= EDGE.threshold
+      ? chalk.gray(` [edge within noise: ${Math.abs(edge).toFixed(3)} < ${threshold}]`)
+      : "";
   console.log(
-    `  Model P(YES) ${consensus.modelProbability} vs market ${market.latestPrice} → ` +
-      `edge ${edge >= 0 ? "+" : ""}${edge} → ${callColor(signal.recommendation)} ` +
-      `(panel ${voteBreakdown}${consensus.unanimous ? " unanimous" : ""}, EV ${signal.expectedValue}) — ` +
-      formatDuration(durationMs)
+    `  Model P(YES) ${modelStr} vs market ${market.latestPrice} → ` +
+      `edge ${edge >= 0 ? "+" : ""}${edge} → ${callColor(signal.recommendation)}` +
+      gated +
+      ` (${panel}, EV ${signal.expectedValue}) — ${formatDuration(durationMs)}`
   );
 
   return {
     market,
-    yesArgument,
-    noArgument,
+    yesArgument: rep.yesArgument,
+    noArgument: rep.noArgument,
     consensus,
     score,
     edge,
     recommendation: signal.recommendation,
     expectedValue: signal.expectedValue,
+    rounds: ensembled,
+    probabilityStdev: ensembleReported ? stdev : undefined,
     durationMs,
   };
 }
@@ -170,6 +239,8 @@ export interface ArenaOptions {
   mock?: boolean;
   agentRuntime?: AgentRuntime;
   runId?: string;
+  /** Independent panel draws to ensemble per debate (>1 enables noise-gating). */
+  rounds?: number;
   /** Pre-selected market panel; skips fetching. Used to freeze the panel across generations. */
   markets?: Market[];
 }
@@ -305,7 +376,8 @@ export async function runGeneration(
         playbook,
         options.verbose,
         useMock,
-        runtime
+        runtime,
+        options.rounds ?? 1
       );
       debates.push(result);
     } catch (e: unknown) {
