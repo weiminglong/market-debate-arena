@@ -122,6 +122,23 @@ actionable calls vs. their expected edge). Resolved outcomes are cached in
 several markets resolve it will honestly say "N pending" — the scores populate
 as the markets you debated settle.
 
+**Closing the loop.** Predictions accrue as you run debates (`run` saves each
+one to `results/`); score them by looking up any market — Polymarket condition
+id or Kalshi ticker — with `run --condition-id <id>`. Because settlement takes
+days to weeks, the honest way to close the loop is to let `calibrate` run on a
+schedule and populate itself:
+
+```bash
+npm run calibrate:refresh          # resolve newly-settled markets + report (unattended-safe)
+
+# …on a schedule, e.g. daily at 9am via crontab -e:
+0 9 * * *  cd /path/to/market-debate-arena && npm run calibrate:refresh >> calibrate.log 2>&1
+```
+
+Each run resolves whatever has settled since last time and appends to the
+durable cache, so the scoreboard fills in on its own as your debated markets
+resolve — no manual bookkeeping.
+
 Models, timeouts, and the edge threshold are configured in `src/config.ts`; the
 high-churn knobs have env overrides: `DEBATER_MODEL`, `JUDGE_MODEL`,
 `ANALYST_MODEL`, `AGENT_TIMEOUT_MS`.

@@ -1,7 +1,17 @@
 // src/market-selector.test.ts
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { fetchMarkets } from "./market-selector.js";
+import { fetchMarkets, idLookupParam } from "./market-selector.js";
+
+describe("idLookupParam", () => {
+  it("routes a Polymarket 0x id to condition-id", () => {
+    assert.strictEqual(idLookupParam("0x2be031440c5a571cd4fc3e05e2478d98"), "condition-id");
+  });
+  it("routes a Kalshi ticker to market-ticker", () => {
+    assert.strictEqual(idLookupParam("KXBTCD-26JUL1017-T62999.99"), "market-ticker");
+    assert.strictEqual(idLookupParam("FEDHIKE-26DEC31"), "market-ticker");
+  });
+});
 
 // Live network test (spends surf API credits) — opt in via LIVE_TESTS=1.
 describe("fetchMarkets", { skip: !process.env.LIVE_TESTS }, () => {
