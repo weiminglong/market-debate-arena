@@ -6,3 +6,4 @@ strategies/playbook.json
 strategies/playbook-history.jsonl
 .DS_Store
 .env
+*.log

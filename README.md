@@ -123,10 +123,11 @@ several markets resolve it will honestly say "N pending" — the scores populate
 as the markets you debated settle.
 
 **Closing the loop.** Predictions accrue as you run debates (`run` saves each
-one to `results/`); score them by looking up any market — Polymarket condition
-id or Kalshi ticker — with `run --condition-id <id>`. Because settlement takes
-days to weeks, the honest way to close the loop is to let `calibrate` run on a
-schedule and populate itself:
+one to `results/`); debate any specific market — Polymarket condition id or
+Kalshi ticker — with `run --condition-id <id>`. Those predictions are scored
+once `calibrate` resolves them. Because settlement takes days to weeks, the
+honest way to close the loop is to let `calibrate` run on a schedule and
+populate itself:
 
 ```bash
 npm run calibrate:refresh          # resolve newly-settled markets + report (unattended-safe)
