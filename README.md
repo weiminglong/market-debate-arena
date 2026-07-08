@@ -36,6 +36,7 @@ falls out of comparing it to the quote:
 
 - **Edge** = `Model P(YES) − market price` — the signed disagreement. Positive → YES looks underpriced (the market may be too low); negative → overpriced. This is the tradeable signal: where the model thinks the market is wrong, and by how much.
 - **Call** — `BUY_YES` / `BUY_NO` / `PASS`. Fires only when `|edge|` clears a threshold (default 0.08, in `src/config.ts`) that absorbs model noise, fees, and slippage. `EV = |edge|` per $1 of the contract when acting. Note: the discrete winner (is YES more likely than not?) and the call (is YES *mispriced*?) can point different ways — a market at 0.34 with a model estimate of 0.49 is "more likely NO" yet still underpriced → `BUY_YES`.
+- **Ensembling (`--rounds N`)** — a single panel is noisy (dogfooding saw `Model P` swing ~0.19 run-to-run). With `--rounds N` the debate runs `N` independent times; `Model P` is reported as **mean ± SD**, and the Call only fires when `|edge|` exceeds both the base threshold **and** the estimator noise (default 2 standard errors, `EDGE.noiseSigmas`). This costs `N×` time and credits and is the honest way to tell a real edge from a lucky draw — most single-run edges turn out to be within noise.
 - **Align\*** — the market-implied probability of the side the panel picked (winner YES → price; winner NO → `1 − price`). It measures *directional* agreement with the market weighted by the market's own confidence — it rewards siding with a confident market. It is **not** the distance between `Model P(YES)` and the price (that gap is the edge). It remains the objective the evolution loop optimizes.
 - **RQI** — research quality index: `0.45·claimDepth + 0.35·sourceDiversity + 0.20·judgeConfidence`. Tracks research process quality even before markets settle.
 - `(m)` marks simulated (mock) generations; the report header carries a MOCK/LIVE badge and the run id.
@@ -85,6 +86,9 @@ npm run arena -- run -m 3 -g 5 -v
 
 # Live: curated showcase market set (validated, auto-topped-up if expired)
 npm run arena -- run --showcase -m 3 -g 4
+
+# Live: ensemble 3 independent panels per debate to measure (and gate on) noise
+npm run arena -- run -m 3 --rounds 3 -v
 
 # Debate a specific Polymarket question
 npm run arena -- run --condition-id 0x1234...

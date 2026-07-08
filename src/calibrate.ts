@@ -33,6 +33,11 @@ export function loadPredictions(): Prediction[] {
     for (const d of result.debates) {
       const cid = d.market.conditionId;
       if (!cid) continue;
+      // Result files that predate the edge metric have no modelProbability/edge;
+      // scoring them would inject NaN into Brier/skill/P&L once they resolve.
+      if (!Number.isFinite(d.consensus?.modelProbability) || !Number.isFinite(d.edge)) {
+        continue;
+      }
       const existing = byMarket.get(cid);
       if (!existing || timestampKey > existing.timestampKey) {
         byMarket.set(cid, {

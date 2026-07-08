@@ -55,6 +55,10 @@ export interface DebateResult {
   recommendation: TradeRecommendation;
   /** Expected value per $1 of the recommended contract (= |edge| when acting, 0 on PASS). */
   expectedValue: number;
+  /** Number of independent panel draws ensembled into this result. */
+  rounds?: number;
+  /** Between-round SD of the panel's P(YES) when ensembled (rounds > 1). */
+  probabilityStdev?: number;
   durationMs?: number;
 }
 

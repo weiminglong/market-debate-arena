@@ -2,11 +2,12 @@ import type { Argument, Claim } from "./types.js";
 
 // A claim sourced from a prediction-market lookup/odds tool is how a
 // price-blinded debater would smuggle the market's own quote to the judges.
-// This is deliberately narrow — it matches market-lookup/odds sources but NOT
-// legitimate research like "market-price" (spot), "polymarket-smart-money"
-// (positioning direction), or "market-fear-greed".
+// This matches market lookup/odds/listing sources — search-prediction-market,
+// polymarket-markets / -events, prediction-market-analytics, and explicit odds
+// sources — but NOT legitimate research like "market-price" (spot),
+// "polymarket-smart-money" (positioning direction), or "market-fear-greed".
 const MARKET_LOOKUP_SOURCE =
-  /search[- ]?prediction[- ]?market|(prediction[- ]?market|polymarket|kalshi)[- ]?(odds|implied|price)/i;
+  /search[- ]?prediction[- ]?market|prediction[- ]?market[- ]?(odds|implied|price|analytic|data|info)|(polymarket|kalshi)[- ]?(odds|implied|price|market|event|listing|analytic|data)/i;
 
 export function isMarketLookupSource(source: string): boolean {
   return MARKET_LOOKUP_SOURCE.test(source);
