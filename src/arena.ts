@@ -4,7 +4,7 @@ import { fetchMarkets } from "./market-selector.js";
 import { runDebater } from "./debater.js";
 import { runJudge } from "./judge.js";
 import { computeConsensus } from "./consensus.js";
-import { scoreDebate } from "./scorer.js";
+import { scoreDebate, computeEdge, recommendTrade } from "./scorer.js";
 import { MOCK_MARKETS, mockDebater, mockJudge } from "./mock.js";
 import { getShowcaseConditionIds } from "./showcase.js";
 import { JUDGING, PRICE_BAND } from "./config.js";
@@ -96,16 +96,35 @@ async function runSingleDebate(
 
   const consensus = computeConsensus(votes);
   const score = scoreDebate(consensus.winner, market.latestPrice);
+  const edge = computeEdge(consensus.modelProbability, market.latestPrice);
+  const signal = recommendTrade(edge);
   const durationMs = Date.now() - started;
 
-  const winColor = consensus.winner === "YES" ? chalk.green : chalk.red;
+  const callColor =
+    signal.recommendation === "BUY_YES"
+      ? chalk.green
+      : signal.recommendation === "BUY_NO"
+        ? chalk.red
+        : chalk.gray;
   const voteBreakdown = `${votes.filter((v) => v.winner === "YES").length}-${votes.filter((v) => v.winner === "NO").length}`;
   console.log(
-    `  Verdict: ${winColor(consensus.winner)} (${voteBreakdown}${consensus.unanimous ? " unanimous" : ""}, ` +
-      `confidence ${consensus.averageConfidence}) — Align* ${score} — ${formatDuration(durationMs)}`
+    `  Model P(YES) ${consensus.modelProbability} vs market ${market.latestPrice} → ` +
+      `edge ${edge >= 0 ? "+" : ""}${edge} → ${callColor(signal.recommendation)} ` +
+      `(panel ${voteBreakdown}${consensus.unanimous ? " unanimous" : ""}, EV ${signal.expectedValue}) — ` +
+      formatDuration(durationMs)
   );
 
-  return { market, yesArgument, noArgument, consensus, score, durationMs };
+  return {
+    market,
+    yesArgument,
+    noArgument,
+    consensus,
+    score,
+    edge,
+    recommendation: signal.recommendation,
+    expectedValue: signal.expectedValue,
+    durationMs,
+  };
 }
 
 export interface ArenaOptions {

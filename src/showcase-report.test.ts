@@ -52,14 +52,18 @@ function makeGenerationResult(
         consensus: {
           winner: "YES",
           votes: [
-            { winner: "YES", confidence: avgConfidence, reasoning: "good" },
-            { winner: "YES", confidence: avgConfidence, reasoning: "good" },
-            { winner: "NO", confidence: avgConfidence, reasoning: "good" },
+            { winner: "YES", probabilityYes: 0.7, confidence: avgConfidence, reasoning: "good" },
+            { winner: "YES", probabilityYes: 0.65, confidence: avgConfidence, reasoning: "good" },
+            { winner: "NO", probabilityYes: 0.4, confidence: avgConfidence, reasoning: "good" },
           ],
           unanimous: false,
           averageConfidence: avgConfidence,
+          modelProbability: 0.583,
         },
         score: 0.6,
+        edge: -0.017,
+        recommendation: "PASS",
+        expectedValue: 0,
       },
     ],
   };

@@ -29,9 +29,23 @@ To preview what a **live** run's report looks like without spending anything:
 
 ### How to read the numbers
 
-- **Align\*** — calibration against the live market-implied probability (winner YES → score = market price; winner NO → `1 − price`). Tracks agreement with market consensus.
+The debaters aren't shown the market price and are instructed not to look it up;
+the judges then estimate the probability of YES purely from the evidence. So the
+panel produces an **independent** `Model P(YES)`, and the trader-facing output
+falls out of comparing it to the quote:
+
+- **Edge** = `Model P(YES) − market price` — the signed disagreement. Positive → YES looks underpriced (the market may be too low); negative → overpriced. This is the tradeable signal: where the model thinks the market is wrong, and by how much.
+- **Call** — `BUY_YES` / `BUY_NO` / `PASS`. Fires only when `|edge|` clears a threshold (default 0.08, in `src/config.ts`) that absorbs model noise, fees, and slippage. `EV = |edge|` per $1 of the contract when acting. Note: the discrete winner (is YES more likely than not?) and the call (is YES *mispriced*?) can point different ways — a market at 0.34 with a model estimate of 0.49 is "more likely NO" yet still underpriced → `BUY_YES`.
+- **Align\*** — the market-implied probability of the side the panel picked (winner YES → price; winner NO → `1 − price`). It measures *directional* agreement with the market weighted by the market's own confidence — it rewards siding with a confident market. It is **not** the distance between `Model P(YES)` and the price (that gap is the edge). It remains the objective the evolution loop optimizes.
 - **RQI** — research quality index: `0.45·claimDepth + 0.35·sourceDiversity + 0.20·judgeConfidence`. Tracks research process quality even before markets settle.
 - `(m)` marks simulated (mock) generations; the report header carries a MOCK/LIVE badge and the run id.
+
+> Edge is a *signal*, not a guarantee. The price blind is enforced by the
+> debater prompt and by withholding the market-lookup tool, not by a hard
+> sandbox — a determined agent could still infer a quote from related data, so
+> treat blinding as best-effort. And the edge hasn't been calibrated against
+> resolved outcomes yet (Brier tracking on settled markets is the natural next
+> step). Treat a `Call` as "worth a closer look," not an instruction.
 
 ## Going live
 
@@ -81,9 +95,9 @@ npm run arena -- runs          # list saved runs (mode, gens, duration)
 npm run arena -- prune --keep 5  # delete result files from older runs
 ```
 
-Models and timeouts are configured in `src/config.ts`; the high-churn knobs
-have env overrides: `DEBATER_MODEL`, `JUDGE_MODEL`, `ANALYST_MODEL`,
-`AGENT_TIMEOUT_MS`.
+Models, timeouts, and the edge threshold are configured in `src/config.ts`; the
+high-churn knobs have env overrides: `DEBATER_MODEL`, `JUDGE_MODEL`,
+`ANALYST_MODEL`, `AGENT_TIMEOUT_MS`.
 
 ### Demo scripts
 
@@ -104,9 +118,9 @@ script.
 The system is organized as a multi-agent research pipeline:
 
 1. **Market selection**: fetches active prediction markets from Polymarket/Kalshi (showcase IDs are validated: expired or extreme-priced markets are replaced from live crypto discovery).
-2. **Adversarial debaters**: YES and NO agents independently gather evidence with Surf tools.
-3. **Byzantine judge panel**: three judges evaluate argument quality and vote. A judge whose vote can't be parsed is re-asked once, then abstains — abstentions are never converted into fabricated votes, and a debate needs a majority of valid votes to count.
-4. **Consensus + scoring**: votes are aggregated into a verdict (ties break by total confidence) and scored against market probability.
+2. **Adversarial debaters (price-blind)**: YES and NO agents independently gather evidence with Surf tools. They are **not shown the market price**, are instructed not to look it up, and the market-lookup tool is withheld from them — so their research can't anchor to the market's own guess (best-effort, not a hard sandbox). The point is an independent read the market may have gotten wrong.
+3. **Forecaster judge panel**: three judges estimate P(YES) from the evidence alone (also price-blind). A judge whose estimate can't be parsed is re-asked once, then abstains — abstentions are never fabricated into a directional estimate, and a debate needs a majority of valid votes to count.
+4. **Consensus + edge**: the panel mean becomes `Model P(YES)`; the winner follows from it (so verdict and probability never disagree). **Edge = Model P(YES) − market price** yields a `BUY_YES`/`BUY_NO`/`PASS` call with expected value once it clears the threshold. Align\* (directional market-agreement score) is still recorded and drives the evolution objective.
 5. **Analyst mutation**: an analyst updates the strategy playbook for the next generation using the full score history. Mutations that regress the score are rolled back (accept/reject ratchet), and analyst output is schema-validated before persisting.
 6. **Persistence**: results and strategy state are written for replay and trend analysis. A failed debate is skipped, a failed generation stops evolution gracefully with partial results intact.
 

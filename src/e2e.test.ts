@@ -40,9 +40,19 @@ describe("e2e: single market debate", { skip: !process.env.LIVE_TESTS }, () => {
       debate.score >= 0 && debate.score <= 1,
       "score should be 0-1"
     );
+    assert.ok(
+      debate.consensus.modelProbability >= 0 && debate.consensus.modelProbability <= 1,
+      "model probability should be 0-1"
+    );
+    assert.ok(Number.isFinite(debate.edge), "edge should be finite");
+    assert.ok(
+      ["BUY_YES", "BUY_NO", "PASS"].includes(debate.recommendation),
+      "recommendation should be a valid trade call"
+    );
 
     console.log(
-      `\nDebate result: ${debate.consensus.winner} won with score ${debate.score}`
+      `\nDebate: model P(YES) ${debate.consensus.modelProbability} vs market ${debate.market.latestPrice}` +
+        ` → edge ${debate.edge} → ${debate.recommendation}`
     );
   });
 });

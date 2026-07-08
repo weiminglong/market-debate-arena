@@ -14,7 +14,10 @@ import { newRunId } from "./util.js";
 import type { GenerationResult } from "./types.js";
 
 const ALIGN_FOOTNOTE =
-  "* Align = calibration against the live market-implied probability (0-1, higher = closer).";
+  "* Align = market-implied probability of the side the panel picked (directional agreement, weighted by market confidence — not distance to the price).";
+
+const EDGE_FOOTNOTE =
+  "Edge = model P(YES) − market price (price-blind estimate). Call fires when |edge| clears the threshold; EV = |edge| per $1.";
 
 function fmt3(value: unknown): string {
   return typeof value === "number" && Number.isFinite(value)
@@ -99,38 +102,48 @@ function printScorecard(result: GenerationResult): void {
   console.log(chalk.bold("\n=== Scorecard ===\n"));
 
   const table = new Table({
-    head: ["Market", "Winner", "Votes", "Mkt Price", "Align*"],
-    colWidths: [40, 8, 12, 11, 8],
+    head: ["Market", "Mkt P", "Model P", "Edge", "Call", "Panel"],
+    colWidths: [36, 7, 9, 8, 10, 8],
     style: { head: ["cyan"] },
   });
 
   for (const debate of result.debates) {
     const question =
-      debate.market.question.length > 38
-        ? debate.market.question.slice(0, 35) + "..."
+      debate.market.question.length > 34
+        ? debate.market.question.slice(0, 31) + "..."
         : debate.market.question;
-    const winColor =
-      debate.consensus.winner === "YES" ? chalk.green : chalk.red;
-    const voteBreakdown = `${debate.consensus.votes.filter((v) => v.winner === "YES").length}-${debate.consensus.votes.filter((v) => v.winner === "NO").length} ${debate.consensus.unanimous ? "(U)" : "(M)"}`;
+    const callColor =
+      debate.recommendation === "BUY_YES"
+        ? chalk.green
+        : debate.recommendation === "BUY_NO"
+          ? chalk.red
+          : chalk.gray;
+    const yes = debate.consensus.votes.filter((v) => v.winner === "YES").length;
+    const no = debate.consensus.votes.filter((v) => v.winner === "NO").length;
+    const panel = `${yes}-${no}${debate.consensus.unanimous ? "U" : ""}`;
     table.push([
       question,
-      winColor(debate.consensus.winner),
-      voteBreakdown,
       debate.market.latestPrice.toFixed(2),
-      fmt3(debate.score),
+      debate.consensus.modelProbability.toFixed(2),
+      (debate.edge >= 0 ? "+" : "") + debate.edge.toFixed(2),
+      callColor(debate.recommendation),
+      panel,
     ]);
   }
 
-  table.push([
-    chalk.bold("Aggregate"),
-    "",
-    "",
-    "",
-    chalk.bold(fmt3(result.averageScore)),
-  ]);
-
   console.log(table.toString());
-  console.log(chalk.gray(ALIGN_FOOTNOTE));
+
+  const actionable = result.debates.filter((d) => d.recommendation !== "PASS");
+  const meanAbsEdge =
+    result.debates.reduce((s, d) => s + Math.abs(d.edge), 0) / result.debates.length;
+  console.log(
+    chalk.bold(
+      `\n  ${actionable.length}/${result.debates.length} actionable ` +
+        `(|edge| ≥ threshold) · mean |edge| ${fmt3(meanAbsEdge)} · Align* ${fmt3(result.averageScore)}`
+    )
+  );
+  console.log(chalk.gray(`\n  ${EDGE_FOOTNOTE}`));
+  console.log(chalk.gray(`  ${ALIGN_FOOTNOTE}`));
   console.log("");
 }
 

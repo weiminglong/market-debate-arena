@@ -15,6 +15,8 @@ export interface Argument {
 
 export interface Vote {
   winner: Side;
+  /** The judge's price-blind, evidence-based estimate that the answer is YES (0-1). */
+  probabilityYes: number;
   confidence: number;
   reasoning: string;
 }
@@ -24,7 +26,11 @@ export interface ConsensusResult {
   votes: Vote[];
   unanimous: boolean;
   averageConfidence: number;
+  /** Panel mean P(YES) — an independent estimate, formed without seeing the market price. */
+  modelProbability: number;
 }
+
+export type TradeRecommendation = "BUY_YES" | "BUY_NO" | "PASS";
 
 export interface Market {
   question: string;
@@ -41,7 +47,14 @@ export interface DebateResult {
   yesArgument: Argument;
   noArgument: Argument;
   consensus: ConsensusResult;
+  /** Align* — calibration proxy: how much probability mass the market assigns the winner. */
   score: number;
+  /** modelProbability − marketPrice. Positive → YES looks underpriced; negative → overpriced. */
+  edge: number;
+  /** The tradeable call once |edge| clears the threshold. */
+  recommendation: TradeRecommendation;
+  /** Expected value per $1 of the recommended contract (= |edge| when acting, 0 on PASS). */
+  expectedValue: number;
   durationMs?: number;
 }
 

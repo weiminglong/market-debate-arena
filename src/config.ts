@@ -61,6 +61,13 @@ export const JUDGING = {
 export const RQI_WEIGHTS = { claims: 0.45, diversity: 0.35, confidence: 0.2 } as const;
 
 /**
+ * Trade-signal thresholds. `threshold` is the minimum |model P(YES) − market
+ * price| worth acting on — it absorbs model noise plus prediction-market fees
+ * and slippage, so anything inside the band is a PASS.
+ */
+export const EDGE = { threshold: 0.08 } as const;
+
+/**
  * Env overrides that actually took effect, for the run banner. Reports the
  * EFFECTIVE value — a set-but-invalid env var is warned about at load time
  * and must not show up here as if it were active.
