@@ -8,10 +8,11 @@ import { scoreDebate, computeEdge, recommendTrade } from "./scorer.js";
 import { MOCK_MARKETS, mockDebater, mockJudge } from "./mock.js";
 import { getShowcaseConditionIds } from "./showcase.js";
 import { JUDGING, PRICE_BAND } from "./config.js";
+import { stripMarketLookupClaims, detectPriceLeak } from "./blind.js";
 import { startHeartbeat, formatDuration } from "./progress.js";
 import { newRunId } from "./util.js";
 import { SurfCreditsExhaustedError } from "./tools/surf-runner.js";
-import type { DebateResult, GenerationResult, Market, Playbook, Vote } from "./types.js";
+import type { Argument, DebateResult, GenerationResult, Market, Playbook, Vote } from "./types.js";
 import type { AgentRuntime } from "./agent-runner.js";
 import { saveGenerationResult } from "./results.js";
 
@@ -25,6 +26,34 @@ function isDebatable(market: Market): boolean {
     market.latestPrice >= PRICE_BAND.min &&
     market.latestPrice <= PRICE_BAND.max
   );
+}
+
+// Enforce the price blind in code: remove market-lookup claims (a debater
+// querying the market's own quote) and warn on suspected price laundering in
+// prose. Mock claims use clean research sources, so this is a no-op for mock.
+function blindArgument(
+  side: string,
+  argument: Argument,
+  market: Market,
+  mock: boolean
+): Argument {
+  const { argument: cleaned, removed } = stripMarketLookupClaims(argument);
+  if (removed.length > 0) {
+    console.log(
+      chalk.yellow(
+        `  Blind: dropped ${removed.length} market-lookup claim(s) from ${side} before judging`
+      )
+    );
+  }
+  if (!mock) {
+    const leak = detectPriceLeak(cleaned, market.latestPrice);
+    if (leak.suspected) {
+      console.log(
+        chalk.yellow(`  Blind: possible market-price leak in a ${side} claim — "${leak.snippets[0]}"`)
+      );
+    }
+  }
+  return cleaned;
 }
 
 async function runSingleDebate(
@@ -52,6 +81,12 @@ async function runSingleDebate(
   } finally {
     stopDebaterHeartbeat();
   }
+
+  // Code-enforced blind: strip any market-lookup claims (and warn on suspected
+  // price laundering in prose) before the judges see the arguments, so the
+  // quote stays hidden even if a debater ignored the price-blind instruction.
+  yesArgument = blindArgument("YES", yesArgument, market, mock);
+  noArgument = blindArgument("NO", noArgument, market, mock);
 
   if (verbose) {
     console.log(chalk.green(`  YES claims: ${yesArgument.claims.length}`));

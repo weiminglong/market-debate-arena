@@ -68,6 +68,14 @@ export const RQI_WEIGHTS = { claims: 0.45, diversity: 0.35, confidence: 0.2 } as
 export const EDGE = { threshold: 0.08 } as const;
 
 /**
+ * Resolution thresholds for scoring past predictions. Surf marks settled
+ * markets `closed`/`finalized` and snaps their price to ~0/1; a price at/above
+ * `yes` resolves YES, at/below `no` resolves NO, and anything in between is
+ * treated as not-yet-decisive (skipped).
+ */
+export const RESOLUTION = { yes: 0.9, no: 0.1 } as const;
+
+/**
  * Env overrides that actually took effect, for the run banner. Reports the
  * EFFECTIVE value — a set-but-invalid env var is warned about at load time
  * and must not show up here as if it were active.

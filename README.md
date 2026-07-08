@@ -40,12 +40,13 @@ falls out of comparing it to the quote:
 - **RQI** — research quality index: `0.45·claimDepth + 0.35·sourceDiversity + 0.20·judgeConfidence`. Tracks research process quality even before markets settle.
 - `(m)` marks simulated (mock) generations; the report header carries a MOCK/LIVE badge and the run id.
 
-> Edge is a *signal*, not a guarantee. The price blind is enforced by the
-> debater prompt and by withholding the market-lookup tool, not by a hard
-> sandbox — a determined agent could still infer a quote from related data, so
-> treat blinding as best-effort. And the edge hasn't been calibrated against
-> resolved outcomes yet (Brier tracking on settled markets is the natural next
-> step). Treat a `Call` as "worth a closer look," not an instruction.
+> Edge is a *signal*, not a guarantee. The price blind is enforced three ways —
+> the debater prompt, withholding the market-lookup tool, and a code pass that
+> strips any market-lookup claim before the judges see it — but not by a hard
+> sandbox, so treat blinding as best-effort. Whether the edge is any *good* is
+> an empirical question: run `npm run arena -- calibrate` to score past
+> predictions against resolved outcomes (see below). Until the sample is large,
+> treat a `Call` as "worth a closer look," not an instruction.
 
 ## Going live
 
@@ -90,10 +91,32 @@ npm run arena -- run --condition-id 0x1234...
 
 # Reports and housekeeping
 npm run arena -- report        # Align*/RQI trend for the latest run
+npm run arena -- calibrate     # score past predictions vs resolved outcomes
 npm run arena -- history       # current playbook + generation history
 npm run arena -- runs          # list saved runs (mode, gens, duration)
 npm run arena -- prune --keep 5  # delete result files from older runs
 ```
+
+### Calibration — is the edge any good?
+
+An edge is only worth trading if the model is actually well-calibrated, so the
+arena keeps score. `calibrate` looks up every past **live** prediction, checks
+which markets surf now reports as settled (`closed`/`finalized` with a decisive
+price), and grades the model against the outcome:
+
+```bash
+npm run arena -- calibrate                # resolve via surf, then score
+npm run arena -- calibrate --no-refresh   # offline: use cached resolutions only
+```
+
+It reports **Brier score and log-loss for the model vs. the market** (with a
+skill score — positive means the model's probabilities beat the market's
+price), a **reliability table** (do markets the model calls 70% actually happen
+~70% of the time?), and a **trade record** (hit rate and realized P&L of the
+actionable calls vs. their expected edge). Resolved outcomes are cached in
+`results/resolutions.json` so a settled market is only looked up once. Until
+several markets resolve it will honestly say "N pending" — the scores populate
+as the markets you debated settle.
 
 Models, timeouts, and the edge threshold are configured in `src/config.ts`; the
 high-churn knobs have env overrides: `DEBATER_MODEL`, `JUDGE_MODEL`,
@@ -118,7 +141,7 @@ script.
 The system is organized as a multi-agent research pipeline:
 
 1. **Market selection**: fetches active prediction markets from Polymarket/Kalshi (showcase IDs are validated: expired or extreme-priced markets are replaced from live crypto discovery).
-2. **Adversarial debaters (price-blind)**: YES and NO agents independently gather evidence with Surf tools. They are **not shown the market price**, are instructed not to look it up, and the market-lookup tool is withheld from them — so their research can't anchor to the market's own guess (best-effort, not a hard sandbox). The point is an independent read the market may have gotten wrong.
+2. **Adversarial debaters (price-blind)**: YES and NO agents independently gather evidence with Surf tools. They are **not shown the market price**, are instructed not to look it up, the market-lookup tool is withheld from them, and a code pass strips any market-lookup claim before it reaches the judges — so their research can't anchor to the market's own guess (best-effort, not a hard sandbox). The point is an independent read the market may have gotten wrong.
 3. **Forecaster judge panel**: three judges estimate P(YES) from the evidence alone (also price-blind). A judge whose estimate can't be parsed is re-asked once, then abstains — abstentions are never fabricated into a directional estimate, and a debate needs a majority of valid votes to count.
 4. **Consensus + edge**: the panel mean becomes `Model P(YES)`; the winner follows from it (so verdict and probability never disagree). **Edge = Model P(YES) − market price** yields a `BUY_YES`/`BUY_NO`/`PASS` call with expected value once it clears the threshold. Align\* (directional market-agreement score) is still recorded and drives the evolution objective.
 5. **Analyst mutation**: an analyst updates the strategy playbook for the next generation using the full score history. Mutations that regress the score are rolled back (accept/reject ratchet), and analyst output is schema-validated before persisting.
@@ -131,6 +154,7 @@ Core persisted artifacts:
 
 - `results/gen-*.json`: generation-level outputs (debates, votes, score, timings, metadata)
 - `results/samples/`: a committed real live-run result for previewing the report
+- `results/resolutions.json`: cached settled outcomes for calibration scoring
 - `strategies/playbook.json`: evolving strategy state (`lessons`, `toolPriority`, `avoidPatterns`)
 - `strategies/playbook-history.jsonl`: append-only trail of every mutation (with reverted markers)
 

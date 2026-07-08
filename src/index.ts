@@ -11,6 +11,7 @@ import { runDoctor, preflightLive } from "./doctor.js";
 import { activeConfigOverrides } from "./config.js";
 import { formatDuration } from "./progress.js";
 import { newRunId } from "./util.js";
+import { runCalibration, type CalibrationRun } from "./calibrate.js";
 import type { GenerationResult } from "./types.js";
 
 const ALIGN_FOOTNOTE =
@@ -210,6 +211,86 @@ function showRuns(): void {
   );
 }
 
+function printCalibration(run: CalibrationRun): void {
+  console.log(chalk.bold("\n=== Calibration ===\n"));
+
+  if (run.totalPredictions === 0) {
+    console.log("No live predictions yet. Run a live debate first (npm run arena -- run).");
+    return;
+  }
+
+  const failedNote = run.failed > 0 ? ` · ${chalk.red(`${run.failed} lookup failed`)}` : "";
+  console.log(
+    `  ${run.totalPredictions} live prediction(s): ` +
+      chalk.green(`${run.resolved.length} resolved`) +
+      ` · ${chalk.yellow(`${run.pending.length} pending`)} (not yet settled)` +
+      failedNote
+  );
+  if (run.failed > 0) {
+    console.log(
+      chalk.red(`  ${run.failed} lookup(s) failed (surf error), not counted as pending: ${run.failureSample}`)
+    );
+  }
+
+  if (run.resolved.length === 0) {
+    console.log(
+      chalk.gray(
+        "\n  Nothing has resolved yet — scores appear as debated markets settle.\n" +
+          "  (If you expected resolutions, check `npm run arena -- doctor`.)\n"
+      )
+    );
+    return;
+  }
+
+  const r = run.report;
+  const skillColor =
+    r.skillScore > 0 ? chalk.green : r.skillScore < 0 ? chalk.red : chalk.gray;
+  const skillNote =
+    r.skillScore > 0
+      ? "(model beat the market)"
+      : r.skillScore < 0
+        ? "(market beat the model)"
+        : "(tied the market)";
+  console.log(chalk.bold("\n  Accuracy (lower Brier / log-loss is better):"));
+  console.log(`    Model  Brier ${r.modelBrier.toFixed(3)}  ·  log-loss ${r.modelLogLoss.toFixed(3)}`);
+  console.log(`    Market Brier ${r.marketBrier.toFixed(3)}  ·  log-loss ${r.marketLogLoss.toFixed(3)}`);
+  console.log(
+    `    Skill vs market: ${skillColor((r.skillScore >= 0 ? "+" : "") + r.skillScore.toFixed(3))} ` +
+      chalk.gray(skillNote)
+  );
+
+  const reliability = new Table({
+    head: ["Model P(YES)", "N", "Mean pred", "Observed YES"],
+    colWidths: [14, 5, 11, 14],
+    style: { head: ["cyan"] },
+  });
+  for (const b of r.reliability) {
+    reliability.push([b.range, String(b.count), b.meanPredicted.toFixed(2), b.observedFrequency.toFixed(2)]);
+  }
+  console.log(chalk.bold("\n  Reliability (are the probabilities honest?):"));
+  console.log(reliability.toString());
+
+  const t = r.trades;
+  console.log(chalk.bold("\n  Trade record (resolved actionable calls):"));
+  if (t.actionable === 0) {
+    console.log("    No actionable calls have resolved yet.");
+  } else {
+    const pnlColor = t.meanRealizedPnl >= 0 ? chalk.green : chalk.red;
+    console.log(
+      `    ${t.actionable} call(s) · ${t.wins} won (hit rate ${(t.hitRate * 100).toFixed(0)}%)`
+    );
+    console.log(
+      `    Realized P&L ${pnlColor((t.meanRealizedPnl >= 0 ? "+" : "") + t.meanRealizedPnl.toFixed(3))}/\$1 ` +
+        chalk.gray(`vs expected edge ${t.meanExpectedEdge.toFixed(3)}`)
+    );
+  }
+  console.log(
+    chalk.gray(
+      `\n  n=${r.n} resolved — treat as directional until the sample is large.\n`
+    )
+  );
+}
+
 const program = new Command()
   .name("arena")
   .description(
@@ -282,6 +363,18 @@ program
     if (!ok) process.exitCode = 1;
   });
 
+program
+  .command("calibrate")
+  .description("score past live predictions against resolved outcomes (Brier, skill vs market, P&L)")
+  .option("--no-refresh", "use only cached resolutions (offline; don't query surf)")
+  .action(async (opts: { refresh: boolean }) => {
+    const run = await runCalibration({
+      refresh: opts.refresh,
+      nowIso: new Date().toISOString(),
+    });
+    printCalibration(run);
+  });
+
 program.addHelpText(
   "after",
   `
@@ -292,12 +385,13 @@ Examples:
   $ npm run arena -- run -m 3 -v        live: one generation on 3 markets
   $ npm run arena -- run --showcase -g 4  live: curated demo markets, 4 generations
   $ npm run arena -- report             Align*/RQI trend for the latest run
+  $ npm run arena -- calibrate          score past predictions vs resolved outcomes
 `
 );
 
 // `run` being the default command means commander routes typos and removed
 // flags into it with misleading errors — intercept those before parsing.
-const KNOWN_COMMANDS = new Set(["run", "report", "history", "runs", "prune", "doctor", "help"]);
+const KNOWN_COMMANDS = new Set(["run", "report", "history", "runs", "prune", "doctor", "calibrate", "help"]);
 const RENAMED_FLAGS: Record<string, string> = {
   "--history": "history",
   "--showcase-report": "report",
