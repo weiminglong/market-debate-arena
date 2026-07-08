@@ -9,6 +9,12 @@ interface FetchOptions {
   category?: string;
 }
 
+// A market is looked up by Polymarket condition id (0x…) or Kalshi ticker
+// (e.g. KXBTCD-26JUL1017-T62999.99); surf uses a different query param for each.
+export function idLookupParam(id: string): "condition-id" | "market-ticker" {
+  return id.startsWith("0x") ? "condition-id" : "market-ticker";
+}
+
 interface RawMarket {
   question: string;
   condition_id?: string;
@@ -23,14 +29,15 @@ interface RawMarket {
 
 export async function fetchMarkets(options: FetchOptions): Promise<Market[]> {
   if (options.conditionId) {
+    const param = idLookupParam(options.conditionId);
     const data = (await runSurf("search-prediction-market", {
-      "condition-id": options.conditionId,
+      [param]: options.conditionId,
       limit: 1,
     })) as RawMarket[];
 
     if (data.length === 0) {
       throw new Error(
-        `No market found for condition id ${options.conditionId} — check the id (or find one with: surf search-prediction-market --q "<topic>")`
+        `No market found for ${param} ${options.conditionId} — check the id (or find one with: surf search-prediction-market --q "<topic>")`
       );
     }
     return data.map(toMarket);

@@ -344,7 +344,7 @@ program
     positiveInt("--rounds", 10),
     1
   )
-  .option("--condition-id <id>", "specific Polymarket condition ID")
+  .option("--condition-id <id>", "specific market: Polymarket condition ID (0x…) or Kalshi ticker")
   .addOption(
     new Option("--showcase", "use curated showcase markets for a reliable demo").conflicts(
       "conditionId"

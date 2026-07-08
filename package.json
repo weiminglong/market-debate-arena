@@ -14,7 +14,8 @@
     "test:e2e": "LIVE_TESTS=1 tsx --test src/e2e.test.ts",
     "typecheck": "tsc --noEmit",
     "showcase:live": "bash scripts/showcase-2min.sh --live",
-    "showcase:report": "tsx src/index.ts report"
+    "showcase:report": "tsx src/index.ts report",
+    "calibrate:refresh": "bash scripts/refresh-calibration.sh"
   },
   "engines": {
     "node": ">=22"
