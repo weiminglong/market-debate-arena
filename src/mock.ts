@@ -187,30 +187,30 @@ export function mockJudge(
   // Deterministic scoring so showcase optimization trends are reproducible.
   const yesDiversity = new Set(yesArg.claims.map((c) => c.source)).size;
   const noDiversity = new Set(noArg.claims.map((c) => c.source)).size;
-  const yesScore =
-    yesArg.claims.length * 0.3 +
-    yesDiversity * 0.4;
-  const noScore =
-    noArg.claims.length * 0.3 +
-    noDiversity * 0.4;
+  const yesScore = yesArg.claims.length * 0.3 + yesDiversity * 0.4;
+  const noScore = noArg.claims.length * 0.3 + noDiversity * 0.4;
 
-  let winner: "YES" | "NO";
-  if (yesScore === noScore) {
-    // Tie-break from the simulated market's own price — deterministic and
-    // consistent with what a real judging panel would plausibly conclude.
-    winner = market.latestPrice >= 0.5 ? "YES" : "NO";
-  } else {
-    winner = yesScore > noScore ? "YES" : "NO";
-  }
-  const margin = Math.abs(yesScore - noScore);
-  const confidence = Math.max(0.55, Math.min(0.9, 0.6 + margin * 0.1));
+  // A price-blind estimate: leans with the stronger side's evidence, plus a
+  // stable per-question offset so different markets carry different (non-zero)
+  // edges. It never reads market.latestPrice — that is the whole point of the
+  // edge metric, and mock must model it honestly.
+  const questionOffset =
+    ([...market.question].reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) % 997, 7) / 997) - 0.5;
+  const probabilityYes = Math.max(
+    0.15,
+    Math.min(0.85, 0.5 + (yesScore - noScore) * 0.15 + questionOffset * 0.3)
+  );
+  const winner: "YES" | "NO" = probabilityYes >= 0.5 ? "YES" : "NO";
+  const confidence = Math.max(0.55, Math.min(0.9, 0.6 + Math.abs(probabilityYes - 0.5) * 0.6));
+
   return {
     winner,
+    probabilityYes: Math.round(probabilityYes * 1000) / 1000,
     confidence: Math.round(confidence * 1000) / 1000,
     reasoning:
-      `${winner} team presented ` +
+      `Estimated P(YES)=${Math.round(probabilityYes * 100) / 100} from ` +
       `${winner === "YES" ? yesArg.claims.length : noArg.claims.length} claims ` +
-      `across ${winner === "YES" ? yesDiversity : noDiversity} sources with stronger evidence density`,
+      `across ${winner === "YES" ? yesDiversity : noDiversity} sources.`,
   };
 }
 

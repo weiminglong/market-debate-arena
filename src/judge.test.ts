@@ -3,46 +3,50 @@ import assert from "node:assert";
 import { parseVote } from "./judge.js";
 
 describe("parseVote", () => {
-  it("parses a well-formed vote", () => {
-    const vote = parseVote('{"winner": "NO", "confidence": 0.8, "reasoning": "stronger data"}');
-    assert.deepStrictEqual(vote, { winner: "NO", confidence: 0.8, reasoning: "stronger data" });
+  it("parses a probability estimate and derives the winner", () => {
+    const vote = parseVote('{"probabilityYes": 0.8, "confidence": 0.7, "reasoning": "strong YES"}');
+    assert.strictEqual(vote?.probabilityYes, 0.8);
+    assert.strictEqual(vote?.winner, "YES");
+    assert.strictEqual(vote?.confidence, 0.7);
   });
 
-  it("accepts lowercase and padded winner values", () => {
-    assert.strictEqual(parseVote('{"winner": "no", "confidence": 0.7}')?.winner, "NO");
-    assert.strictEqual(parseVote('{"winner": " yes ", "confidence": 0.7}')?.winner, "YES");
+  it("derives NO when the probability is below 0.5", () => {
+    assert.strictEqual(parseVote('{"probabilityYes": 0.2}')?.winner, "NO");
+    assert.strictEqual(parseVote('{"probabilityYes": 0.5}')?.winner, "YES");
   });
 
-  it("abstains (null) instead of fabricating a vote when no JSON is present", () => {
-    assert.strictEqual(parseVote("I think the YES side wins."), null);
+  it("abstains (null) when no JSON is present", () => {
+    assert.strictEqual(parseVote("I think YES is more likely."), null);
   });
 
-  it("abstains when winner is missing or invalid", () => {
+  it("abstains when probabilityYes is missing or non-numeric", () => {
     assert.strictEqual(parseVote('{"confidence": 0.9}'), null);
-    assert.strictEqual(parseVote('{"winner": "MAYBE", "confidence": 0.9}'), null);
+    assert.strictEqual(parseVote('{"probabilityYes": "likely"}'), null);
   });
 
-  it("guards non-numeric confidence instead of propagating NaN", () => {
-    const vote = parseVote('{"winner": "YES", "confidence": "high"}');
+  it("parses a numeric-string probability", () => {
+    assert.strictEqual(parseVote('{"probabilityYes": "0.9"}')?.probabilityYes, 0.9);
+  });
+
+  it("clamps out-of-range probabilities", () => {
+    assert.strictEqual(parseVote('{"probabilityYes": 1.4}')?.probabilityYes, 1);
+    assert.strictEqual(parseVote('{"probabilityYes": -0.3}')?.probabilityYes, 0);
+  });
+
+  it("preserves a legitimate probability of 0", () => {
+    const vote = parseVote('{"probabilityYes": 0}');
+    assert.strictEqual(vote?.probabilityYes, 0);
+    assert.strictEqual(vote?.winner, "NO");
+  });
+
+  it("defaults confidence to 0.5 when non-numeric, without poisoning it with NaN", () => {
+    const vote = parseVote('{"probabilityYes": 0.7, "confidence": "high"}');
     assert.strictEqual(vote?.confidence, 0.5);
     assert.ok(Number.isFinite(vote!.confidence));
   });
 
-  it("parses numeric-string confidence", () => {
-    assert.strictEqual(parseVote('{"winner": "YES", "confidence": "0.9"}')?.confidence, 0.9);
-  });
-
-  it("preserves a legitimate confidence of 0", () => {
-    assert.strictEqual(parseVote('{"winner": "NO", "confidence": 0}')?.confidence, 0);
-  });
-
-  it("clamps out-of-range confidence", () => {
-    assert.strictEqual(parseVote('{"winner": "NO", "confidence": 3}')?.confidence, 1);
-    assert.strictEqual(parseVote('{"winner": "NO", "confidence": -1}')?.confidence, 0);
-  });
-
-  it("extracts the vote from surrounding prose", () => {
-    const vote = parseVote('Here is my verdict:\n{"winner": "NO", "confidence": 0.6, "reasoning": "x"}\nDone.');
+  it("extracts the estimate from surrounding prose", () => {
+    const vote = parseVote('Here is my call:\n{"probabilityYes": 0.3, "reasoning": "x"}\nDone.');
     assert.strictEqual(vote?.winner, "NO");
   });
 });

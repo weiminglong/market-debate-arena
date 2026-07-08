@@ -1,3 +1,4 @@
+import { round3 } from "./util.js";
 import type { ConsensusResult, Side, Vote } from "./types.js";
 
 export function computeConsensus(votes: Vote[]): ConsensusResult {
@@ -5,19 +6,16 @@ export function computeConsensus(votes: Vote[]): ConsensusResult {
     throw new Error("cannot compute consensus with zero valid votes");
   }
 
-  const yesVotes = votes.filter((v) => v.winner === "YES");
-  const noVotes = votes.filter((v) => v.winner === "NO");
+  // The panel's aggregate estimate is the mean of the judges' independent
+  // P(YES); the discrete winner follows from it, so the verdict and the
+  // tradeable probability can never disagree.
+  const modelProbability = round3(
+    votes.reduce((sum, v) => sum + v.probabilityYes, 0) / votes.length
+  );
+  const winner: Side = modelProbability >= 0.5 ? "YES" : "NO";
 
-  let winner: Side;
-  if (yesVotes.length !== noVotes.length) {
-    winner = yesVotes.length > noVotes.length ? "YES" : "NO";
-  } else {
-    // Tied panel (possible when a judge abstains): break by total confidence
-    // instead of a fixed side, which would systematically bias the scores.
-    const yesConfidence = yesVotes.reduce((sum, v) => sum + v.confidence, 0);
-    const noConfidence = noVotes.reduce((sum, v) => sum + v.confidence, 0);
-    winner = yesConfidence >= noConfidence ? "YES" : "NO";
-  }
+  const yesVotes = votes.filter((v) => v.probabilityYes >= 0.5).length;
+  const noVotes = votes.length - yesVotes;
 
   const finiteConfidences = votes
     .map((v) => v.confidence)
@@ -30,7 +28,8 @@ export function computeConsensus(votes: Vote[]): ConsensusResult {
   return {
     winner,
     votes,
-    unanimous: yesVotes.length === votes.length || noVotes.length === votes.length,
-    averageConfidence: Math.round(avgConfidence * 1000) / 1000,
+    unanimous: yesVotes === votes.length || noVotes === votes.length,
+    averageConfidence: round3(avgConfidence),
+    modelProbability,
   };
 }

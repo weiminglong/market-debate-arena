@@ -85,30 +85,40 @@ describe("mock showcase behavior", () => {
     const v2 = mockJudge(MARKET, yesArg, noArg);
 
     assert.deepStrictEqual(v1, v2);
+    assert.ok(v1.probabilityYes >= 0 && v1.probabilityYes <= 1);
   });
 
-  it("breaks ties from the market price, deterministically", () => {
-    const tiedYes: Argument = {
+  it("estimates a probability that ignores the market price", () => {
+    const yesArg: Argument = {
       side: "YES",
       summary: "yes",
-      claims: [
-        { claim: "A", source: "market-price", data: {}, reasoning: "A" },
-        { claim: "B", source: "news-feed", data: {}, reasoning: "B" },
-      ],
+      claims: [{ claim: "A", source: "market-price", data: {}, reasoning: "A" }],
     };
-    const tiedNo: Argument = {
+    const noArg: Argument = {
       side: "NO",
       summary: "no",
-      claims: [
-        { claim: "C", source: "market-price", data: {}, reasoning: "C" },
-        { claim: "D", source: "news-feed", data: {}, reasoning: "D" },
-      ],
+      claims: [{ claim: "C", source: "market-price", data: {}, reasoning: "C" }],
     };
 
-    const bullishMarket: Market = { ...MARKET, latestPrice: 0.62 };
-    const bearishMarket: Market = { ...MARKET, latestPrice: 0.35 };
+    // Same question, wildly different quoted prices → identical estimate,
+    // because the mock panel is price-blind like the real one.
+    const bullishMarket: Market = { ...MARKET, latestPrice: 0.9 };
+    const bearishMarket: Market = { ...MARKET, latestPrice: 0.1 };
 
-    assert.strictEqual(mockJudge(bullishMarket, tiedYes, tiedNo).winner, "YES");
-    assert.strictEqual(mockJudge(bearishMarket, tiedYes, tiedNo).winner, "NO");
+    assert.strictEqual(
+      mockJudge(bullishMarket, yesArg, noArg).probabilityYes,
+      mockJudge(bearishMarket, yesArg, noArg).probabilityYes
+    );
+  });
+
+  it("gives different questions different estimates (non-degenerate edges)", () => {
+    const arg = (side: "YES" | "NO"): Argument => ({
+      side,
+      summary: side,
+      claims: [{ claim: "x", source: "market-price", data: {}, reasoning: "x" }],
+    });
+    const a = mockJudge({ ...MARKET, question: "Will BTC hit $100K?" }, arg("YES"), arg("NO"));
+    const b = mockJudge({ ...MARKET, question: "Will ETH flip BTC?" }, arg("YES"), arg("NO"));
+    assert.notStrictEqual(a.probabilityYes, b.probabilityYes);
   });
 });

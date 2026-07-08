@@ -53,11 +53,15 @@ function makeResult(generation: number): GenerationResult {
         noArgument: { side: "NO", summary: "no", claims: [] },
         consensus: {
           winner: "YES",
-          votes: [{ winner: "YES", confidence: 0.7, reasoning: "" }],
+          votes: [{ winner: "YES", probabilityYes: 0.72, confidence: 0.7, reasoning: "" }],
           unanimous: true,
           averageConfidence: 0.7,
+          modelProbability: 0.72,
         },
         score: 0.6,
+        edge: 0.12,
+        recommendation: "BUY_YES",
+        expectedValue: 0.12,
       },
     ],
   };
